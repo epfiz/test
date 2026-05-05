@@ -1,0 +1,20 @@
+```
+# Godot-specific ignores
+*.import
+*.uid
+export_presets.cfg
+.autoloads/
+.editor/
+.godot/
+
+# Dependencies
+.addons/
+.build/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+```
