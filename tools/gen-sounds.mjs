@@ -3,6 +3,8 @@
 // Deterministic: the same output on every run.
 
 const SR = 32000;
+// Trims the instrument tails so the whole page lands near 10 MB; a long fade keeps the cut from being heard.
+const TAIL = 0.7;
 
 function rng(seed) {
   return () => {
@@ -31,7 +33,7 @@ function wav(channels) {
 
 // Sum of decaying partials: [ratio, amplitude, decaySeconds].
 function modal(f0, partials, seconds, { attack = 0.002, click = 0, seed = 1 } = {}) {
-  const n = Math.round(SR * seconds), out = new Float64Array(n), r = rng(seed);
+  const n = Math.round(SR * seconds * TAIL), out = new Float64Array(n), r = rng(seed);
   partials.forEach(([ratio, amp, decay]) => {
     const w = 2 * Math.PI * f0 * ratio / SR, ph = r() * Math.PI * 2;
     for (let i = 0; i < n; i++) out[i] += amp * Math.sin(w * i + ph) * Math.exp(-i / (SR * decay));
@@ -39,7 +41,7 @@ function modal(f0, partials, seconds, { attack = 0.002, click = 0, seed = 1 } = 
   const a = Math.round(SR * attack);
   for (let i = 0; i < a; i++) out[i] *= i / a;
   if (click) { let lp = 0; for (let i = 0; i < SR * 0.006; i++) { lp += 0.35 * ((r() * 2 - 1) - lp); out[i] += click * lp * (1 - i / (SR * 0.006)); } }
-  fadeOut(out, 0.08);
+  fadeOut(out, n / SR * 0.35);
   return out;
 }
 
@@ -50,7 +52,7 @@ function fadeOut(x, seconds) {
 
 // Karplus-Strong plucked string with a slightly bright excitation.
 function pluck(f0, seconds, seed) {
-  const n = Math.round(SR * seconds), out = new Float64Array(n), r = rng(seed);
+  const n = Math.round(SR * seconds * TAIL), out = new Float64Array(n), r = rng(seed);
   const len = Math.round(SR / f0), line = new Float64Array(len);
   let lp = 0;
   for (let i = 0; i < len; i++) { lp += 0.6 * ((r() * 2 - 1) - lp); line[i] = lp; }
@@ -60,7 +62,7 @@ function pluck(f0, seconds, seed) {
     line[idx] = 0.4985 * (a + b);
     out[i] = a; idx = (idx + 1) % len;
   }
-  fadeOut(out, 0.1);
+  fadeOut(out, n / SR * 0.35);
   return out;
 }
 
@@ -89,19 +91,37 @@ function hall(seconds, rt60, seed) {
   return chans;
 }
 
-const C4 = 261.63, C5 = 523.25;
-const sounds = {
-  // Steel comb tooth: a cantilever, so overtones sit at 6.27× and 17.55× and die quickly.
-  musicbox: { root: 72, data: wav([modal(C5, [[1, 1, 1.6], [2, 0.12, 0.5], [6.27, 0.32, 0.18], [17.55, 0.08, 0.05]], 2.2, { click: 0.25, seed: 3 })]) },
+const hzOf = m => 440 * Math.pow(2, (m - 69) / 12);
+
+// Every instrument is sampled every minor third from C3 to C6, so playback never repitches by more than a semitone.
+// Higher notes ring for less time, as they do on the real instruments.
+const NOTES = [];
+for (let m = 48; m <= 84; m += 3) NOTES.push(m);
+const span = (m, low, high) => low + (high - low) * (m - 48) / 36;
+
+const INSTRUMENTS = {
+  // Steel comb tooth: a cantilever, so overtones sit at 6.27x and 17.55x and die quickly.
+  musicbox: m => modal(hzOf(m), [[1, 1, span(m, 2.2, 0.9)], [2, 0.12, 0.5], [6.27, 0.32, 0.18], [17.55, 0.08, 0.05]],
+    span(m, 3.4, 1.6), { click: 0.25, seed: m }),
   // Kalimba tine plus a little wooden box resonance.
-  kalimba: { root: 60, data: wav([modal(C4, [[1, 1, 1.1], [1.003, 0.4, 0.9], [5.9, 0.25, 0.12], [2.01, 0.08, 0.3], [0.5, 0.05, 0.25]], 2.0, { click: 0.4, seed: 5 })]) },
-  // Tuned rosewood bar: overtones near 4× and 10×, with the resonator holding the fundamental.
-  marimba: { root: 60, data: wav([modal(C4, [[1, 1, 0.75], [3.93, 0.35, 0.16], [9.2, 0.1, 0.05]], 1.8, { attack: 0.003, click: 0.15, seed: 7 })]) },
+  kalimba: m => modal(hzOf(m), [[1, 1, span(m, 1.6, 0.7)], [1.003, 0.4, span(m, 1.3, 0.6)], [5.9, 0.25, 0.12], [2.01, 0.08, 0.3], [0.5, 0.05, 0.25]],
+    span(m, 2.8, 1.4), { click: 0.4, seed: 100 + m }),
+  // Tuned rosewood bar: overtones near 4x and 10x, with the resonator holding the fundamental.
+  marimba: m => modal(hzOf(m), [[1, 1, span(m, 1.1, 0.4)], [3.93, 0.35, 0.16], [9.2, 0.1, 0.05]],
+    span(m, 2.4, 1.1), { attack: 0.003, click: 0.15, seed: 200 + m }),
   // Plucked gut string.
-  harp: { root: 60, data: wav([pluck(C4, 2.4, 11)]) },
+  harp: m => pluck(hzOf(m), span(m, 3.4, 1.8), 300 + m),
   // Free metal bar: the inharmonic 2.76 / 5.40 / 8.93 series gives the celesta its glassy shimmer.
-  celesta: { root: 72, data: wav([modal(C5, [[1, 1, 1.8], [2.76, 0.3, 0.6], [5.4, 0.12, 0.25], [8.93, 0.05, 0.1]], 2.3, { seed: 13 })]) },
-  hall: { data: wav(hall(2.6, 2.3, 17)) }
+  celesta: m => modal(hzOf(m), [[1, 1, span(m, 2.4, 1.1)], [2.76, 0.3, 0.6], [5.4, 0.12, 0.25], [8.93, 0.05, 0.1]],
+    span(m, 3.4, 1.7), { seed: 400 + m })
 };
+
+const sounds = { instruments: {}, halls: {} };
+for (const [name, make] of Object.entries(INSTRUMENTS)) {
+  sounds.instruments[name] = NOTES.map(m => ({ midi: m, data: wav([make(m)]) }));
+}
+sounds.halls.room = wav(hall(1.1, 0.8, 21));
+sounds.halls.hall = wav(hall(2.8, 2.3, 17));
+sounds.halls.cathedral = wav(hall(6.0, 5.2, 23));
 
 process.stdout.write("const SOUNDS = " + JSON.stringify(sounds) + ";\n");
