@@ -2,7 +2,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-  /* Layout: a drawing table — the plate (canvas) on the left, the machine's dials on the right; stacks on phones. */
+  /* Layout: a drawing table — the plate (canvas) on the left, the machine's dials on the right; presets and the album run underneath. Stacks on phones. */
   :root {
     --paper: #eef1f4;
     --plate: #fbfcfd;
@@ -10,6 +10,8 @@
     --ink-soft: #5b6687;
     --rule: #d3d9e3;
     --pen: #2f45b8;
+    --veil: rgba(18, 24, 48, 0.55);
+    --rainbow-l: 44%;
     --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
     --font-body: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -17,39 +19,53 @@
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --paper: #12151d; --plate: #181c26; --ink: #e3e7f3; --ink-soft: #949cb5;
-      --rule: #2a3040; --pen: #8fa6ff; color-scheme: dark;
+      --rule: #2a3040; --pen: #8fa6ff; --veil: rgba(4, 6, 12, 0.7); --rainbow-l: 68%;
+      color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
     --paper: #12151d; --plate: #181c26; --ink: #e3e7f3; --ink-soft: #949cb5;
-    --rule: #2a3040; --pen: #8fa6ff; color-scheme: dark;
+    --rule: #2a3040; --pen: #8fa6ff; --veil: rgba(4, 6, 12, 0.7); --rainbow-l: 68%;
+    color-scheme: dark;
   }
 
   body {
     background: var(--paper); color: var(--ink);
     font-family: var(--font-body); font-size: 15px; line-height: 1.5;
-    padding-inline: 16px; padding-block: 28px 40px;
+    padding-inline: 16px; padding-block: 28px 48px;
   }
-  .wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 24px; }
+  .wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 28px; }
   header { display: grid; gap: 6px; }
   h1 {
     font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em;
     font-size: clamp(28px, 6vw, 48px); line-height: 1; margin: 0; text-wrap: balance;
   }
-  .lede { margin: 0; max-width: 62ch; color: var(--ink-soft); }
+  h2 {
+    font-family: var(--font-display); font-weight: 500; font-size: 17px;
+    margin: 0; letter-spacing: -0.01em;
+  }
+  .lede { margin: 0; max-width: 64ch; color: var(--ink-soft); }
 
-  .table { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
-  @media (max-width: 760px) { .table { grid-template-columns: minmax(0, 1fr); } }
+  .table { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
+  @media (max-width: 800px) { .table { grid-template-columns: minmax(0, 1fr); } }
 
+  .plate-col { display: grid; gap: 8px; min-width: 0; }
   .plate {
     background: var(--plate); border: 1px solid var(--rule); border-radius: 4px;
-    aspect-ratio: 1; max-width: 100%; position: relative;
+    aspect-ratio: 1; max-width: 100%; position: relative; overflow: hidden;
   }
-  canvas { width: 100%; height: 100%; display: block; }
+  .plate canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .stamp {
-    position: absolute; left: 14px; bottom: 10px;
+    position: absolute; left: 14px; bottom: 10px; pointer-events: none;
     font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft);
     letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
+  }
+  .progress { height: 3px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+  .progress i { display: block; height: 100%; width: 0; background: var(--pen); }
+  .keys { font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  kbd {
+    font-family: inherit; border: 1px solid var(--rule); border-bottom-width: 2px;
+    border-radius: 3px; padding: 0 5px; color: var(--ink);
   }
 
   .dials { display: grid; gap: 18px; min-width: 0; }
@@ -62,35 +78,91 @@
   .row-head { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
   .row-head output { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--pen); }
   input[type="range"] { width: 100%; accent-color: var(--pen); }
+  input[type="range"]:disabled { opacity: 0.4; }
+  select {
+    font: 14px var(--font-body); color: var(--ink); background: var(--plate);
+    border: 1px solid var(--rule); border-radius: 3px; padding: 6px 8px; width: 100%;
+  }
+
+  .seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--pen); border-radius: 3px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; }
+  .seg button[aria-pressed="true"] { background: var(--pen); color: var(--plate); }
 
   .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
   button {
     font: 500 14px var(--font-body); cursor: pointer; border-radius: 3px;
-    padding: 9px 14px; border: 1px solid var(--pen); background: transparent; color: var(--pen);
+    padding: 8px 13px; border: 1px solid var(--pen); background: transparent; color: var(--pen);
   }
   button.primary { background: var(--pen); color: var(--plate); }
   button:hover { filter: brightness(1.1); }
-  button:focus-visible, input:focus-visible { outline: 2px solid var(--pen); outline-offset: 2px; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--pen); outline-offset: 2px; }
 
   .formula {
     font-family: var(--font-mono); font-size: 12px; line-height: 1.7; color: var(--ink-soft);
     overflow-x: auto; white-space: pre; margin: 0;
+  }
+
+  .shelf { display: grid; gap: 12px; }
+  .shelf-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .shelf-head p { margin: 0; color: var(--ink-soft); font-size: 13px; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 12px; }
+  .thumb {
+    display: grid; gap: 6px; padding: 0; border: 0; background: none; color: var(--ink);
+    text-align: left; font: 13px var(--font-body); position: relative; cursor: pointer;
+  }
+  .thumb canvas {
+    width: 100%; aspect-ratio: 1; max-width: 100%; display: block;
+    background: var(--plate); border: 1px solid var(--rule); border-radius: 4px;
+  }
+  .thumb:hover canvas { border-color: var(--pen); }
+  .thumb .del {
+    position: absolute; top: 4px; right: 4px; padding: 0 7px; line-height: 20px;
+    font-size: 14px; background: var(--plate);
+  }
+  .empty { color: var(--ink-soft); font-size: 14px; margin: 0; }
+
+  .modal { position: fixed; inset: 0; background: var(--veil); display: grid; place-items: center; padding: 16px; z-index: 10; }
+  .modal-card {
+    background: var(--plate); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 16px; display: grid; gap: 12px; max-width: min(560px, 100%);
+  }
+  .modal-card img { border-radius: 4px; border: 1px solid var(--rule); background: var(--plate); }
+  .modal-card p { margin: 0; font-size: 13px; color: var(--ink-soft); }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    background: var(--ink); color: var(--paper); padding: 8px 14px; border-radius: 3px; font-size: 14px; z-index: 11;
   }
 </style>
 
 <div class="wrap">
   <header>
     <h1>Гармонограф</h1>
-    <p class="lede">Викторианская машина для рисования: два затухающих маятника качают перо и стол. Когда частоты почти кратны, линия медленно «плывёт» и складывается в узор. Покрутите ручки или нажмите «Новый узор».</p>
+    <p class="lede">Викторианская машина для рисования: затухающие маятники качают перо и стол. Когда частоты почти кратны, линия медленно «плывёт» и складывается в узор. Вращайте стол, включайте симметрию, смотрите на кривую в 3D, слушайте её как аккорд и собирайте альбом.</p>
   </header>
 
   <div class="table">
-    <div class="plate">
-      <canvas id="c" aria-label="Рисунок гармонографа"></canvas>
-      <div class="stamp" id="stamp">f 2 : 3</div>
+    <div class="plate-col">
+      <div class="plate">
+        <canvas id="c" aria-label="Рисунок гармонографа"></canvas>
+        <canvas id="tip" aria-hidden="true"></canvas>
+        <div class="stamp" id="stamp"></div>
+      </div>
+      <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+      <div class="keys">
+        <span><kbd>N</kbd> новый узор</span><span><kbd>R</kbd> заново</span>
+        <span><kbd>P</kbd> пауза</span><span><kbd>3</kbd> 2D / 3D</span><span><kbd>S</kbd> звук</span>
+      </div>
     </div>
 
     <div class="dials">
+      <div class="group">
+        <span class="label">Режим</span>
+        <div class="seg" role="group" aria-label="Режим">
+          <button type="button" id="m2d" aria-pressed="true">Бумага 2D</button>
+          <button type="button" id="m3d" aria-pressed="false">Пространство 3D</button>
+        </div>
+      </div>
+
       <div class="group">
         <span class="label">Маятники</span>
         <div class="row">
@@ -110,93 +182,434 @@
           <input id="dm" type="range" min="0.001" max="0.02" step="0.001" value="0.004">
         </div>
       </div>
+
+      <div class="group">
+        <span class="label">Стол и перо</span>
+        <div class="row">
+          <div class="row-head"><label for="rot">Вращение стола</label><output id="rot-o"></output></div>
+          <input id="rot" type="range" min="-0.02" max="0.02" step="0.001" value="0">
+        </div>
+        <div class="row">
+          <div class="row-head"><label for="sym">Симметрия</label><output id="sym-o"></output></div>
+          <input id="sym" type="range" min="1" max="8" step="1" value="1">
+        </div>
+        <div class="row">
+          <div class="row-head"><label for="lw">Толщина пера</label><output id="lw-o"></output></div>
+          <input id="lw" type="range" min="0.5" max="3" step="0.25" value="1">
+        </div>
+        <div class="row">
+          <div class="row-head"><label for="speed">Скорость</label><output id="speed-o"></output></div>
+          <input id="speed" type="range" min="0.25" max="4" step="0.25" value="1">
+        </div>
+        <div class="row">
+          <label for="color">Чернила</label>
+          <select id="color">
+            <option value="ink">Синие чернила</option>
+            <option value="rainbow">Радуга по времени</option>
+            <option value="fade">Выцветание с затуханием</option>
+          </select>
+        </div>
+      </div>
+
       <div class="buttons">
         <button class="primary" id="rand" type="button">Новый узор</button>
-        <button id="replay" type="button">Нарисовать заново</button>
+        <button id="replay" type="button">Заново</button>
+        <button id="pause" type="button">Пауза</button>
+        <button id="sound" type="button">Послушать</button>
+        <button id="save" type="button">В альбом</button>
+        <button id="snap" type="button">Снимок</button>
+        <button id="copy" type="button">Копировать формулу</button>
       </div>
       <pre class="formula" id="formula"></pre>
     </div>
   </div>
+
+  <section class="shelf">
+    <div class="shelf-head">
+      <h2>Классические настройки</h2>
+      <p>Нажмите на рисунок, чтобы загрузить его в машину.</p>
+    </div>
+    <div class="thumbs" id="presets"></div>
+  </section>
+
+  <section class="shelf">
+    <div class="shelf-head">
+      <h2>Мой альбом</h2>
+      <p>Хранится только в этом браузере.</p>
+    </div>
+    <div class="thumbs" id="album"></div>
+    <p class="empty" id="album-empty">Пока пусто. Нарисуйте что-нибудь и нажмите «В альбом».</p>
+  </section>
 </div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-card">
+    <img id="snap-img" alt="Снимок узора">
+    <p>Чтобы сохранить картинку, нажмите на неё правой кнопкой мыши или удерживайте палец на телефоне.</p>
+    <div class="buttons"><button class="primary" id="close" type="button">Закрыть</button></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
 
 <script>
 (() => {
   const $ = id => document.getElementById(id);
   const canvas = $("c"), ctx = canvas.getContext("2d");
-  const inputs = ["fx", "fy", "dt", "dm"].map($);
+  const tip = $("tip"), tctx = tip.getContext("2d");
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let phases = [0, Math.PI / 2, Math.PI / 4, 0];
-  let raf = 0;
+  const SLIDERS = ["fx", "fy", "dt", "dm", "rot", "sym", "lw", "speed"];
+  const FMT = {
+    fx: v => v, fy: v => v, dt: v => v.toFixed(3), dm: v => v.toFixed(3),
+    rot: v => (v === 0 ? "стоит" : (v > 0 ? "↻ " : "↺ ") + Math.abs(v).toFixed(3)),
+    sym: v => (v === 1 ? "нет" : v + "×"), lw: v => v.toFixed(2), speed: v => v + "×"
+  };
 
-  const params = () => ({
-    fx: +$("fx").value, fy: +$("fy").value, dt: +$("dt").value, dm: +$("dm").value
-  });
+  let S = {
+    mode: "2d", fx: 2, fy: 3, dt: 0.008, dm: 0.004, rot: 0, sym: 1, lw: 1, speed: 1,
+    color: "ink", phases: [0, Math.PI / 2, Math.PI / 4, 0, Math.PI / 3]
+  };
+  let raf = 0, paused = false, run = null;
 
-  // Two pendulums per axis: x is driven by pendulums 1 and 2, y by 3 and 4.
-  function point(p, t) {
-    const e = Math.exp(-p.dm * t);
-    const x = Math.sin(p.fx * t + phases[0]) + Math.sin((p.fx + p.dt) * t + phases[1]) * 0.6;
-    const y = Math.sin(p.fy * t + phases[2]) + Math.sin((p.fy - p.dt) * t + phases[3]) * 0.6;
-    return [x * e / 1.6, y * e / 1.6];
+  // ---------- model ----------
+  // x is driven by pendulums 1 and 2, y by 3 and 4, z (3D only) by a fifth; the table may rotate under the pen.
+  function point(s, t) {
+    const e = Math.exp(-s.dm * t), p = s.phases;
+    let x = (Math.sin(s.fx * t + p[0]) + 0.6 * Math.sin((s.fx + s.dt) * t + p[1])) * e / 1.6;
+    let y = (Math.sin(s.fy * t + p[2]) + 0.6 * Math.sin((s.fy - s.dt) * t + p[3])) * e / 1.6;
+    const z = Math.sin(((s.fx + s.fy) / 2 + s.dt) * t + p[4]) * e;
+    if (s.rot) {
+      const a = s.rot * t, c = Math.cos(a), n = Math.sin(a);
+      [x, y] = [x * c - y * n, x * n + y * c];
+    }
+    return [x, y, z, e];
+  }
+  const duration = s => Math.min(5 / s.dm, 1400);
+
+  function colorAt(s, frac, e, alpha, theme) {
+    if (s.color === "rainbow") return `hsla(${(frac * 320 + 200) % 360}, 75%, ${theme.l}, ${alpha})`;
+    if (s.color === "fade") return withAlpha(theme.pen, alpha * (0.15 + 0.85 * e));
+    return withAlpha(theme.pen, alpha);
+  }
+  function withAlpha(hex, a) {
+    const n = parseInt(hex.replace("#", ""), 16);
+    return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${a})`;
+  }
+  function theme() {
+    const cs = getComputedStyle(document.documentElement);
+    return { pen: cs.getPropertyValue("--pen").trim(), l: cs.getPropertyValue("--rainbow-l").trim() };
   }
 
-  function size() {
-    const r = canvas.getBoundingClientRect(), d = devicePixelRatio || 1;
-    canvas.width = Math.round(r.width * d); canvas.height = Math.round(r.height * d);
+  // ---------- rendering ----------
+  function fit(c) {
+    const r = c.getBoundingClientRect(), d = devicePixelRatio || 1;
+    c.width = Math.max(1, Math.round(r.width * d)); c.height = Math.max(1, Math.round(r.height * d));
   }
 
-  function label() {
-    const p = params();
-    $("fx-o").textContent = p.fx;
-    $("fy-o").textContent = p.fy;
-    $("dt-o").textContent = p.dt.toFixed(3);
-    $("dm-o").textContent = p.dm.toFixed(3);
-    $("stamp").textContent = `f ${p.fx} : ${p.fy}   δ ${p.dt.toFixed(3)}`;
-    const f = n => n.toFixed(2);
-    $("formula").textContent =
-      `x(t) = e^(−${p.dm.toFixed(3)}t)·[sin(${p.fx}t+${f(phases[0])})\n` +
-      `       + 0.6·sin(${f(p.fx + p.dt)}t+${f(phases[1])})]\n` +
-      `y(t) = e^(−${p.dm.toFixed(3)}t)·[sin(${p.fy}t+${f(phases[2])})\n` +
-      `       + 0.6·sin(${f(p.fy - p.dt)}t+${f(phases[3])})]`;
+  // Strokes a run of points once per symmetry arm, rotated about the plate centre.
+  function strokeArms(g, pts, w, h, sym, style) {
+    g.strokeStyle = style;
+    for (let k = 0; k < sym; k++) {
+      g.setTransform(1, 0, 0, 1, w / 2, h / 2);
+      g.rotate((Math.PI * 2 * k) / sym);
+      g.beginPath();
+      g.moveTo(pts[0], pts[1]);
+      for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]);
+      g.stroke();
+    }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
+  // Draws a full 2D curve at once (used for thumbnails and reduced motion).
+  function render2D(g, s, w, h, th, stepDt) {
+    const T = duration(s), sc = Math.min(w, h) * 0.44 / Math.sqrt(Math.max(1, s.sym) > 1 ? 1.15 : 1);
+    g.clearRect(0, 0, w, h);
+    g.lineWidth = Math.max(0.6, s.lw * w / 900); g.lineJoin = "round";
+    let [px, py] = point(s, 0);
+    for (let t = 0; t < T;) {
+      const pts = [px * sc, py * sc];
+      let e = 1;
+      for (let i = 0; i < 40 && t < T; i++) { t += stepDt; const q = point(s, t); px = q[0]; py = q[1]; e = q[3]; pts.push(px * sc, py * sc); }
+      strokeArms(g, pts, w, h, s.sym, colorAt(s, t / T, e, s.sym > 1 ? 0.35 : 0.55, th));
+    }
+  }
+
+  function render3D(g, s, w, h, th, pts, angle) {
+    g.clearRect(0, 0, w, h);
+    g.lineWidth = Math.max(0.6, s.lw * w / 900); g.lineJoin = "round";
+    const sc = Math.min(w, h) * 0.38, tilt = 0.55, ct = Math.cos(tilt), st = Math.sin(tilt);
+    const ca = Math.cos(angle), sa = Math.sin(angle), n = pts.length / 4;
+    const proj = i => {
+      const x = pts[i * 4], y = pts[i * 4 + 1], z = pts[i * 4 + 2];
+      const x1 = x * ca + z * sa, z1 = -x * sa + z * ca;
+      const y1 = y * ct - z1 * st, d = y * st + z1 * ct;
+      const k = 1 / (1.6 + d * 0.45) * 1.6;
+      return [w / 2 + x1 * sc * k, h / 2 + y1 * sc * k, d];
+    };
+    let prev = proj(0);
+    for (let i = 1; i < n; i += 30) {
+      g.beginPath(); g.moveTo(prev[0], prev[1]);
+      let d = 0;
+      for (let j = i; j < Math.min(n, i + 30); j++) { prev = proj(j); g.lineTo(prev[0], prev[1]); d += prev[2]; }
+      const depth = d / 30, near = 0.25 + 0.6 * (1 - (depth + 1) / 2);
+      g.strokeStyle = colorAt(s, i / n, pts[i * 4 + 3], Math.max(0.12, near), th);
+      g.stroke();
+    }
   }
 
   function draw() {
     cancelAnimationFrame(raf);
-    size(); label();
-    const p = params();
-    const w = canvas.width, h = canvas.height, s = Math.min(w, h) * 0.44;
-    const pen = getComputedStyle(document.documentElement).getPropertyValue("--pen").trim();
-    const T = Math.min(5 / p.dm, 1400), dt = 0.02, perFrame = reduce ? Infinity : 900;
+    fit(canvas); fit(tip);
+    label();
+    const w = canvas.width, h = canvas.height, th = theme(), s = { ...S };
+    tctx.clearRect(0, 0, w, h);
+    const T = duration(s);
+
+    if (s.mode === "3d") {
+      const N = 24000, pts = new Float32Array(N * 4);
+      for (let i = 0; i < N; i++) { const q = point(s, (i / N) * T); pts.set(q, i * 4); }
+      let angle = 0.6;
+      $("bar").style.width = "100%";
+      const spin = () => {
+        render3D(ctx, s, w, h, th, pts, angle);
+        if (!paused) angle += 0.004 * s.speed;
+        if (!reduce) raf = requestAnimationFrame(spin);
+      };
+      run = { mode: "3d" };
+      spin();
+      return;
+    }
+
+    if (reduce) { render2D(ctx, s, w, h, th, 0.02); $("bar").style.width = "100%"; run = { mode: "2d", t: T, T }; return; }
+
     ctx.clearRect(0, 0, w, h);
-    ctx.strokeStyle = pen; ctx.lineWidth = Math.max(1, w / 900); ctx.globalAlpha = 0.55;
-    ctx.lineJoin = "round";
-    let t = 0, [px, py] = point(p, 0);
+    ctx.lineWidth = Math.max(0.6, s.lw * w / 900); ctx.lineJoin = "round";
+    const sc = Math.min(w, h) * 0.44 / (s.sym > 1 ? Math.sqrt(1.15) : 1), stepDt = 0.02;
+    let t = 0, [px, py] = point(s, 0);
+    run = { mode: "2d", t: 0, T };
     const step = () => {
-      ctx.beginPath(); ctx.moveTo(w / 2 + px * s, h / 2 + py * s);
-      for (let i = 0; i < perFrame && t < T; i++) {
-        t += dt; [px, py] = point(p, t);
-        ctx.lineTo(w / 2 + px * s, h / 2 + py * s);
+      if (!paused) {
+        const budget = Math.round(700 * s.speed);
+        let done = 0, e = 1;
+        while (done < budget && t < T) {
+          const pts = [px * sc, py * sc];
+          for (let i = 0; i < 40 && t < T; i++, done++) { t += stepDt; const q = point(s, t); px = q[0]; py = q[1]; e = q[3]; pts.push(px * sc, py * sc); }
+          strokeArms(ctx, pts, w, h, s.sym, colorAt(s, t / T, e, s.sym > 1 ? 0.35 : 0.55, th));
+        }
+        run.t = t;
+        $("bar").style.width = (t / T * 100).toFixed(1) + "%";
+        tctx.clearRect(0, 0, w, h);
+        if (t < T) {
+          tctx.fillStyle = th.pen;
+          for (let k = 0; k < s.sym; k++) {
+            const a = (Math.PI * 2 * k) / s.sym, x = px * sc, y = py * sc;
+            tctx.beginPath();
+            tctx.arc(w / 2 + x * Math.cos(a) - y * Math.sin(a), h / 2 + x * Math.sin(a) + y * Math.cos(a), Math.max(3, w / 220), 0, Math.PI * 2);
+            tctx.fill();
+          }
+        }
       }
-      ctx.stroke();
       if (t < T) raf = requestAnimationFrame(step);
     };
     step();
   }
 
-  $("rand").addEventListener("click", () => {
-    const pairs = [[1,2],[2,3],[3,4],[3,5],[4,5],[2,5],[1,3],[5,6],[3,7]];
+  function thumb(c, s) {
+    const d = devicePixelRatio || 1, size = 112 * d;
+    c.width = size; c.height = size;
+    const g = c.getContext("2d"), th = theme();
+    if (s.mode === "3d") {
+      const N = 6000, T = duration(s), pts = new Float32Array(N * 4);
+      for (let i = 0; i < N; i++) pts.set(point(s, (i / N) * T), i * 4);
+      render3D(g, { ...s, lw: 1.2 }, size, size, th, pts, 0.6);
+    } else {
+      render2D(g, { ...s, lw: 1.6 }, size, size, th, 0.05);
+    }
+  }
+
+  // ---------- UI ----------
+  function label() {
+    SLIDERS.forEach(k => { $(k).value = S[k]; $(k + "-o").textContent = FMT[k](S[k]); });
+    $("color").value = S.color;
+    $("sym").disabled = S.mode === "3d";
+    $("m2d").setAttribute("aria-pressed", S.mode === "2d");
+    $("m3d").setAttribute("aria-pressed", S.mode === "3d");
+    $("stamp").textContent = `f ${S.fx} : ${S.fy}   δ ${S.dt.toFixed(3)}` +
+      (S.rot ? `   ω ${S.rot.toFixed(3)}` : "") + (S.sym > 1 && S.mode === "2d" ? `   ×${S.sym}` : "") +
+      (S.mode === "3d" ? "   3D" : "");
+    $("formula").textContent = formula();
+  }
+  function formula() {
+    const f = n => n.toFixed(2), p = S.phases, d = S.dm.toFixed(3);
+    let out =
+      `x(t) = e^(−${d}t)·[sin(${S.fx}t+${f(p[0])}) + 0.6·sin(${f(S.fx + S.dt)}t+${f(p[1])})]\n` +
+      `y(t) = e^(−${d}t)·[sin(${S.fy}t+${f(p[2])}) + 0.6·sin(${f(S.fy - S.dt)}t+${f(p[3])})]`;
+    if (S.mode === "3d") out += `\nz(t) = e^(−${d}t)·sin(${f((S.fx + S.fy) / 2 + S.dt)}t+${f(p[4])})`;
+    if (S.rot) out += `\nстол поворачивается на ${S.rot.toFixed(3)}·t рад`;
+    return out;
+  }
+
+  function load(s) { S = { ...S, ...s, phases: [...s.phases] }; paused = false; $("pause").textContent = "Пауза"; draw(); }
+
+  function randomize() {
+    const pairs = [[1,2],[2,3],[3,4],[3,5],[4,5],[2,5],[1,3],[5,6],[3,7],[4,7],[1,1],[2,2]];
     const [a, b] = pairs[Math.floor(Math.random() * pairs.length)];
-    $("fx").value = a; $("fy").value = b;
-    $("dt").value = (Math.random() * 0.02 + 0.002).toFixed(3);
-    $("dm").value = (Math.random() * 0.006 + 0.002).toFixed(3);
-    phases = phases.map(() => Math.random() * Math.PI * 2);
+    const r = (lo, hi, dp = 3) => +(lo + Math.random() * (hi - lo)).toFixed(dp);
+    S.fx = a; S.fy = b;
+    S.dt = r(0.002, 0.022); S.dm = r(0.002, 0.008);
+    S.rot = Math.random() < 0.35 ? r(-0.012, 0.012) : 0;
+    S.sym = S.mode === "2d" && Math.random() < 0.3 ? [3, 4, 5, 6][Math.floor(Math.random() * 4)] : 1;
+    S.phases = S.phases.map(() => Math.random() * Math.PI * 2);
     draw();
+  }
+
+  SLIDERS.forEach(k => $(k).addEventListener("input", e => { S[k] = +e.target.value; draw(); }));
+  $("color").addEventListener("change", e => { S.color = e.target.value; draw(); });
+  $("m2d").addEventListener("click", () => { S.mode = "2d"; draw(); });
+  $("m3d").addEventListener("click", () => { S.mode = "3d"; draw(); });
+  $("rand").addEventListener("click", randomize);
+  $("replay").addEventListener("click", () => { paused = false; $("pause").textContent = "Пауза"; draw(); });
+  $("pause").addEventListener("click", togglePause);
+  $("sound").addEventListener("click", playChord);
+  $("save").addEventListener("click", saveToAlbum);
+  $("snap").addEventListener("click", snapshot);
+  $("copy").addEventListener("click", copyFormula);
+  $("close").addEventListener("click", () => { $("modal").hidden = true; });
+  $("modal").addEventListener("click", e => { if (e.target === $("modal")) $("modal").hidden = true; });
+
+  function togglePause() { paused = !paused; $("pause").textContent = paused ? "Продолжить" : "Пауза"; }
+
+  addEventListener("keydown", e => {
+    if (e.target.closest("input, select, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === "escape") { $("modal").hidden = true; return; }
+    if (k === "n" || k === "т") randomize();
+    else if (k === "r" || k === "к") draw();
+    else if (k === "p" || k === "з") togglePause();
+    else if (k === "s" || k === "ы") playChord();
+    else if (k === "3") { S.mode = S.mode === "2d" ? "3d" : "2d"; draw(); }
   });
-  $("replay").addEventListener("click", draw);
-  inputs.forEach(el => el.addEventListener("input", draw));
-  addEventListener("resize", draw);
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
-  new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-  draw();
+
+  let toastTimer = 0;
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 1800);
+  }
+
+  // ---------- sound: each pendulum becomes a sine voice, x pendulums on the left, y on the right ----------
+  let audio = null, voices = [];
+  function playChord() {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      voices.forEach(v => { try { v.stop(); } catch (_) {} });
+      const now = audio.currentTime, base = 130.81, len = Math.min(9, Math.max(3, 0.02 / S.dm * 2.5));
+      const freqs = [[S.fx, -0.7], [S.fx + S.dt * 40, -0.4], [S.fy, 0.7], [S.fy - S.dt * 40, 0.4]];
+      voices = freqs.map(([f, pan], i) => {
+        const o = audio.createOscillator(), g = audio.createGain(), p = audio.createStereoPanner();
+        o.type = "sine"; o.frequency.value = base * f;
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(i % 2 ? 0.05 : 0.08, now + 0.04);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + len);
+        p.pan.value = pan;
+        o.connect(g).connect(p).connect(audio.destination);
+        o.start(now); o.stop(now + len + 0.05);
+        return o;
+      });
+      toast(`Звучит ${S.fx} : ${S.fy}, биения от расстройки`);
+    } catch (_) { toast("Звук недоступен в этом браузере"); }
+  }
+
+  // ---------- snapshot & copy ----------
+  function snapshot() {
+    const out = document.createElement("canvas");
+    out.width = canvas.width; out.height = canvas.height;
+    const g = out.getContext("2d");
+    g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--plate").trim();
+    g.fillRect(0, 0, out.width, out.height);
+    g.drawImage(canvas, 0, 0);
+    $("snap-img").src = out.toDataURL("image/png");
+    $("modal").hidden = false;
+    $("close").focus();
+  }
+  function copyFormula() {
+    const text = formula();
+    try {
+      navigator.clipboard.writeText(text).then(() => toast("Формула скопирована"), () => fallback());
+    } catch (_) { fallback(); }
+    function fallback() {
+      const r = document.createRange(); r.selectNodeContents($("formula"));
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      toast("Формула выделена, скопируйте её вручную");
+    }
+  }
+
+  // ---------- presets ----------
+  const PI = Math.PI;
+  const PRESETS = [
+    { name: "Трилистник", fx: 2, fy: 3, dt: 0.008, dm: 0.004, rot: 0, sym: 1, phases: [0, PI/2, PI/4, 0, PI/3] },
+    { name: "Восьмёрка", fx: 1, fy: 2, dt: 0.006, dm: 0.003, rot: 0, sym: 1, phases: [0, 0.3, PI/2, 0.2, 0] },
+    { name: "Кокон", fx: 1, fy: 1, dt: 0.012, dm: 0.003, rot: 0, sym: 1, phases: [0, PI/2, PI/2, 0, 0] },
+    { name: "Пятилучник", fx: 2, fy: 5, dt: 0.004, dm: 0.005, rot: 0, sym: 1, phases: [PI/3, 0, 0, PI/5, 0] },
+    { name: "Роза ветров", fx: 3, fy: 4, dt: 0.003, dm: 0.004, rot: 0.006, sym: 1, phases: [0, 1, 2, 3, 0] },
+    { name: "Спираль", fx: 1, fy: 1, dt: 0.002, dm: 0.003, rot: 0.012, sym: 1, phases: [0, PI/2, PI/2, PI, 0] },
+    { name: "Мандала", fx: 3, fy: 4, dt: 0.01, dm: 0.005, rot: 0, sym: 6, phases: [0.4, 1.9, 2.8, 0.7, 0] },
+    { name: "Снежинка", fx: 2, fy: 3, dt: 0.015, dm: 0.006, rot: 0.004, sym: 6, phases: [0, PI/2, 0, PI/2, 0] },
+    { name: "Ракушка", fx: 3, fy: 5, dt: 0.006, dm: 0.003, rot: -0.008, sym: 1, phases: [1.2, 0.4, 2.2, 5.1, 0] },
+    { name: "Узел", fx: 4, fy: 7, dt: 0.005, dm: 0.003, rot: 0, sym: 1, phases: [0, 2, 1, 4, 0] },
+    { name: "Галактика", fx: 2, fy: 3, dt: 0.01, dm: 0.004, rot: 0.008, sym: 1, mode: "3d", color: "rainbow", phases: [0, 1, 2, 3, 0.5] },
+    { name: "Клубок", fx: 3, fy: 4, dt: 0.012, dm: 0.003, rot: 0, sym: 1, mode: "3d", phases: [0.5, 2.1, 1.1, 0, 1.4] }
+  ];
+
+  function thumbButton(s, name, onDelete) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "thumb";
+    const c = document.createElement("canvas"), span = document.createElement("span");
+    span.textContent = name;
+    b.append(c, span);
+    b.addEventListener("click", e => {
+      if (e.target.closest(".del")) return;
+      load({ mode: "2d", color: "ink", lw: S.lw, speed: S.speed, ...s });
+      scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    });
+    if (onDelete) {
+      const x = document.createElement("span");
+      x.className = "del"; x.setAttribute("role", "button"); x.setAttribute("aria-label", "Удалить из альбома");
+      x.tabIndex = 0; x.textContent = "×";
+      x.addEventListener("click", onDelete);
+      x.addEventListener("keydown", e => { if (e.key === "Enter") onDelete(); });
+      b.append(x);
+    }
+    requestAnimationFrame(() => thumb(c, { mode: "2d", color: "ink", ...s }));
+    return b;
+  }
+  function renderPresets() {
+    $("presets").replaceChildren(...PRESETS.map(p => thumbButton(p, p.name)));
+  }
+
+  // ---------- album (per-viewer, browser storage) ----------
+  const KEY = "harmonograph.album.v1";
+  function readAlbum() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (_) { return []; } }
+  function writeAlbum(list) { try { localStorage.setItem(KEY, JSON.stringify(list)); return true; } catch (_) { return false; } }
+  function renderAlbum() {
+    const list = readAlbum();
+    $("album-empty").hidden = list.length > 0;
+    $("album").replaceChildren(...list.map((s, i) => thumbButton(s, s.name, () => {
+      const next = readAlbum(); next.splice(i, 1); writeAlbum(next); renderAlbum();
+    })));
+  }
+  function saveToAlbum() {
+    const list = readAlbum();
+    const { mode, fx, fy, dt, dm, rot, sym, color, phases } = S;
+    list.unshift({ name: `№${list.length + 1} · ${fx}:${fy}${mode === "3d" ? " 3D" : ""}`, mode, fx, fy, dt, dm, rot, sym, color, phases: [...phases] });
+    if (writeAlbum(list.slice(0, 36))) { renderAlbum(); toast("Сохранено в альбом"); }
+    else toast("Браузер не дал сохранить. Возможно, включён приватный режим");
+  }
+
+  // ---------- boot ----------
+  let resizeTimer = 0;
+  addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(draw, 120); });
+  const rethemed = () => { draw(); renderPresets(); renderAlbum(); };
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", rethemed);
+  new MutationObserver(rethemed).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  draw(); renderPresets(); renderAlbum();
 })();
 </script>
