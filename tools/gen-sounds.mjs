@@ -124,4 +124,6 @@ sounds.halls.room = wav(hall(1.1, 0.8, 21));
 sounds.halls.hall = wav(hall(2.8, 2.3, 17));
 sounds.halls.cathedral = wav(hall(6.0, 5.2, 23));
 
-process.stdout.write("const SOUNDS = " + JSON.stringify(sounds) + ";\n");
+// --window publishes the data as a global for pages that load it as a separate script.
+const decl = process.argv.includes("--window") ? "window.SOUNDS = " : "const SOUNDS = ";
+process.stdout.write(decl + JSON.stringify(sounds) + ";\n");

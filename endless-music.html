@@ -1,0 +1,847 @@
+<title>Машина хаоса</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Golos+Text:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: an observatory console — transport and harmony on top, four live systems in a 2×2 bank (one column on phones), each with its own channel strip. */
+  :root {
+    --ground: #eceef3;
+    --panel: #f8f9fc;
+    --ink: #171a2b;
+    --ink-soft: #5a6078;
+    --rule: #d3d7e2;
+    --accent: #3b3fb6;
+    --lz: #4338ca;
+    --lg: #0f766e;
+    --dp: #b45309;
+    --bl: #be185d;
+    --font-display: "Russo One", "Arial Black", system-ui, sans-serif;
+    --font-body: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e1018; --panel: #151826; --ink: #e4e6f2; --ink-soft: #9297b0; --rule: #272b3e;
+      --accent: #9da2ff; --lz: #a5a3ff; --lg: #4fd1c0; --dp: #f6ad55; --bl: #f472b6;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e1018; --panel: #151826; --ink: #e4e6f2; --ink-soft: #9297b0; --rule: #272b3e;
+    --accent: #9da2ff; --lz: #a5a3ff; --lg: #4fd1c0; --dp: #f6ad55; --bl: #f472b6;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--ground); color: var(--ink);
+    font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+    padding-inline: 16px; padding-block: 28px 48px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 20px; }
+  header { display: grid; gap: 8px; }
+  h1 {
+    font-family: var(--font-display); font-weight: 400; margin: 0;
+    font-size: clamp(30px, 6vw, 52px); line-height: 1; letter-spacing: 0.01em; text-wrap: balance;
+  }
+  .lede { margin: 0; max-width: 72ch; color: var(--ink-soft); }
+
+  .console {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 14px 16px; display: grid; gap: 14px;
+  }
+  .transport { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: end; }
+  .field { display: grid; gap: 4px; min-width: 0; }
+  .field.grow { flex: 1 1 160px; }
+  .label { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); }
+  .row-head { display: flex; justify-content: space-between; gap: 8px; }
+  .row-head output { font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  select {
+    font: 14px var(--font-body); color: var(--ink); background: var(--panel);
+    border: 1px solid var(--rule); border-radius: 4px; padding: 6px 8px;
+  }
+  button {
+    font: 500 14px var(--font-body); cursor: pointer; border-radius: 4px;
+    padding: 8px 14px; border: 1px solid var(--accent); background: transparent; color: var(--accent);
+  }
+  button.primary { background: var(--accent); color: var(--panel); min-width: 8.5em; font-size: 15px; padding: 10px 18px; }
+  button:hover { filter: brightness(1.08); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .harmony { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+  .now { display: flex; gap: 10px; align-items: baseline; }
+  .now b { font-family: var(--font-display); font-weight: 400; font-size: 26px; line-height: 1; }
+  .now span { font-family: var(--font-mono); font-size: 13px; color: var(--ink-soft); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+  .chip {
+    font-family: var(--font-mono); font-size: 12px; padding: 2px 8px; border-radius: 3px;
+    border: 1px solid var(--rule); color: var(--ink-soft);
+  }
+  .chip:last-child { border-color: var(--accent); color: var(--accent); }
+  .meter { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; display: flex; flex-wrap: wrap; gap: 4px 16px; margin-left: auto; }
+  .meter b { color: var(--ink); font-weight: 500; }
+  #spectrum { width: 100%; height: 48px; display: block; }
+
+  .bank { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 760px) { .bank { grid-template-columns: minmax(0, 1fr); } }
+  .sys {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+    display: grid; grid-template-rows: auto auto auto; min-width: 0; overflow: hidden;
+  }
+  .sys-head { display: grid; gap: 2px; padding: 12px 14px 8px; border-top: 3px solid var(--c); }
+  .sys-title { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .sys-title h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 18px; color: var(--c); }
+  .sys-title .role { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); }
+  .formula { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); overflow-x: auto; white-space: nowrap; }
+  .sys canvas { width: 100%; aspect-ratio: 4 / 3; max-width: 100%; display: block; }
+  .strip { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 10px 14px; padding: 10px 14px 14px; align-items: end; border-top: 1px solid var(--rule); }
+  .strip .on { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; cursor: pointer; padding-bottom: 4px; }
+  .strip .on input { accent-color: var(--c); width: 16px; height: 16px; }
+  .strip input[type="range"] { accent-color: var(--c); }
+  .strip select { width: 100%; }
+  .strip .wide { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
+  .strip .wide .field { flex: 1 1 140px; }
+  .strip button { border-color: var(--c); color: var(--c); padding: 6px 12px; }
+
+  .how { margin: 0; color: var(--ink-soft); font-size: 14px; max-width: 76ch; }
+  kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 3px; padding: 0 5px; color: var(--ink); }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Машина хаоса</h1>
+    <p class="lede">Бесконечная музыка, которую никто не пишет. Четыре физические и математические системы работают прямо сейчас, и каждая играет свою партию. Цепь Маркова выбирает аккорды, и все партии подстраиваются под гармонию. Ни один такт не повторяется.</p>
+  </header>
+
+  <section class="console">
+    <div class="transport">
+      <button class="primary" id="play" type="button">Играть</button>
+      <div class="field grow">
+        <div class="row-head"><label class="label" for="bpm">Темп</label><output id="bpm-o"></output></div>
+        <input id="bpm" type="range" min="56" max="140" step="2" value="84">
+      </div>
+      <div class="field">
+        <label class="label" for="key">Тоника</label>
+        <select id="key"></select>
+      </div>
+      <div class="field">
+        <label class="label" for="mode">Лад</label>
+        <select id="mode">
+          <option value="major">Мажор</option>
+          <option value="minor">Натуральный минор</option>
+          <option value="dorian" selected>Дорийский</option>
+          <option value="lydian">Лидийский</option>
+          <option value="pent">Пентатоника</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="label" for="room">Акустика</label>
+        <select id="room">
+          <option value="room">Комната</option>
+          <option value="hall" selected>Концертный зал</option>
+          <option value="cathedral">Собор</option>
+        </select>
+      </div>
+      <div class="field grow">
+        <div class="row-head"><label class="label" for="wet">Реверберация</label><output id="wet-o"></output></div>
+        <input id="wet" type="range" min="0" max="1" step="0.05" value="0.45">
+      </div>
+    </div>
+
+    <div class="harmony">
+      <div class="now"><b id="chord">Dm</b><span id="roman">i</span></div>
+      <div class="chips" id="chips" aria-label="Последние аккорды"></div>
+      <div class="meter">
+        <span>Такт <b id="bar">0</b></span>
+        <span>Время <b id="clock">0:00</b></span>
+        <span id="status">Загружаю инструменты</span>
+      </div>
+    </div>
+    <canvas id="spectrum" aria-label="Спектр звучания"></canvas>
+    <div class="strip" style="--c: var(--accent); padding: 0; border: 0;">
+      <label class="on"><input type="checkbox" id="pad-on" checked> Пэд</label>
+      <div class="field">
+        <div class="row-head"><label class="label" for="pad-vol">Громкость пэда</label><output id="pad-vol-o"></output></div>
+        <input id="pad-vol" type="range" min="0" max="1" step="0.05" value="0.5">
+      </div>
+      <div class="field">
+        <div class="row-head"><label class="label" for="pad-len">Аккорд длится</label><output id="pad-len-o"></output></div>
+        <input id="pad-len" type="range" min="1" max="4" step="1" value="2">
+      </div>
+    </div>
+  </section>
+
+  <div class="bank">
+    <section class="sys" style="--c: var(--lz)">
+      <div class="sys-head">
+        <div class="sys-title"><h2>Аттрактор Лоренца</h2><span class="role">Мелодия</span></div>
+        <div class="formula">ẋ = σ(y − x) · ẏ = x(ρ − z) − y · ż = xy − βz · σ = 10, ρ = 28, β = 8/3</div>
+      </div>
+      <canvas id="cv-lz" aria-label="Траектория аттрактора Лоренца"></canvas>
+      <div class="strip">
+        <label class="on"><input type="checkbox" id="lz-on" checked> Звук</label>
+        <div class="field">
+          <div class="row-head"><label class="label" for="lz-vol">Громкость</label><output id="lz-vol-o"></output></div>
+          <input id="lz-vol" type="range" min="0" max="1" step="0.05" value="0.7">
+        </div>
+        <div class="field"><label class="label" for="lz-inst">Инструмент</label><select id="lz-inst" data-default="celesta"></select></div>
+        <div class="wide">
+          <div class="field">
+            <div class="row-head"><label class="label" for="lz-speed">Скорость времени</label><output id="lz-speed-o"></output></div>
+            <input id="lz-speed" type="range" min="0.2" max="2" step="0.1" value="1">
+          </div>
+          <button type="button" id="lz-shake">Встряхнуть</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="sys" style="--c: var(--lg)">
+      <div class="sys-head">
+        <div class="sys-title"><h2>Логистическое отображение</h2><span class="role">Арпеджио</span></div>
+        <div class="formula">xₙ₊₁ = r · xₙ · (1 − xₙ) · r плавно ходит от 2,95 до 4</div>
+      </div>
+      <canvas id="cv-lg" aria-label="Бифуркационная диаграмма логистического отображения"></canvas>
+      <div class="strip">
+        <label class="on"><input type="checkbox" id="lg-on" checked> Звук</label>
+        <div class="field">
+          <div class="row-head"><label class="label" for="lg-vol">Громкость</label><output id="lg-vol-o"></output></div>
+          <input id="lg-vol" type="range" min="0" max="1" step="0.05" value="0.5">
+        </div>
+        <div class="field"><label class="label" for="lg-inst">Инструмент</label><select id="lg-inst" data-default="marimba"></select></div>
+        <div class="wide">
+          <div class="field">
+            <div class="row-head"><label class="label" for="lg-cycle">Путь к хаосу и обратно</label><output id="lg-cycle-o"></output></div>
+            <input id="lg-cycle" type="range" min="8" max="128" step="8" value="48">
+          </div>
+          <div class="field">
+            <div class="row-head"><label class="label" for="lg-r">Сейчас r</label><output id="lg-r-o"></output></div>
+            <input id="lg-r" type="range" min="2.95" max="4" step="0.001" value="3.2">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sys" style="--c: var(--dp)">
+      <div class="sys-head">
+        <div class="sys-title"><h2>Двойной маятник</h2><span class="role">Бас</span></div>
+        <div class="formula">θ̈₁, θ̈₂ из уравнений Лагранжа · m = 1, l = 1 · нота, когда плечо проходит низ</div>
+      </div>
+      <canvas id="cv-dp" aria-label="Двойной маятник"></canvas>
+      <div class="strip">
+        <label class="on"><input type="checkbox" id="dp-on" checked> Звук</label>
+        <div class="field">
+          <div class="row-head"><label class="label" for="dp-vol">Громкость</label><output id="dp-vol-o"></output></div>
+          <input id="dp-vol" type="range" min="0" max="1" step="0.05" value="0.7">
+        </div>
+        <div class="field"><label class="label" for="dp-inst">Инструмент</label><select id="dp-inst" data-default="bass"></select></div>
+        <div class="wide">
+          <div class="field">
+            <div class="row-head"><label class="label" for="dp-g">Гравитация</label><output id="dp-g-o"></output></div>
+            <input id="dp-g" type="range" min="1" max="25" step="0.5" value="9.8">
+          </div>
+          <button type="button" id="dp-shake">Встряхнуть</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="sys" style="--c: var(--bl)">
+      <div class="sys-head">
+        <div class="sys-title"><h2>Бильярд в круге</h2><span class="role">Колокольчики</span></div>
+        <div class="formula">v′ = v − 2(v·n)n при ударе · высота ноты = угол точки удара</div>
+      </div>
+      <canvas id="cv-bl" aria-label="Шары в круглом бильярде"></canvas>
+      <div class="strip">
+        <label class="on"><input type="checkbox" id="bl-on" checked> Звук</label>
+        <div class="field">
+          <div class="row-head"><label class="label" for="bl-vol">Громкость</label><output id="bl-vol-o"></output></div>
+          <input id="bl-vol" type="range" min="0" max="1" step="0.05" value="0.45">
+        </div>
+        <div class="field"><label class="label" for="bl-inst">Инструмент</label><select id="bl-inst" data-default="kalimba"></select></div>
+        <div class="wide">
+          <div class="field">
+            <div class="row-head"><label class="label" for="bl-n">Шаров</label><output id="bl-n-o"></output></div>
+            <input id="bl-n" type="range" min="1" max="6" step="1" value="3">
+          </div>
+          <div class="field">
+            <div class="row-head"><label class="label" for="bl-speed">Скорость</label><output id="bl-speed-o"></output></div>
+            <input id="bl-speed" type="range" min="0.2" max="2.5" step="0.1" value="0.9">
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <p class="how">Все системы считаются в реальном времени, а ноты привязаны к сетке шестнадцатых, поэтому хаос звучит в ритме. Лоренц играет, когда траектория пересекает плоскость z = 27. Логистическое отображение играет каждую восьмую, а r медленно идёт к хаосу и обратно: сначала одна нота повторяется, потом две, четыре, восемь, и наконец начинается хаос с короткими островками порядка, например окном периода 3 около r = 3,83. Ползунок «Сейчас r» показывает, где мы, и его можно перетащить. Клавиша <kbd>Пробел</kbd> запускает и ставит на паузу.</p>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const NAMES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
+  const SCALES = {
+    major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10],
+    lydian: [0, 2, 4, 6, 7, 9, 11], pent: [0, 2, 4, 7, 9]
+  };
+  const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"];
+  const INSTRUMENTS = [
+    ["musicbox", "Музыкальная шкатулка"], ["kalimba", "Калимба"], ["marimba", "Маримба"],
+    ["harp", "Арфа"], ["celesta", "Челеста"], ["glass", "Стеклянная гармоника"], ["synth", "Синтезатор"], ["bass", "Синтез-бас"]
+  ];
+
+  // ---------- controls ----------
+  NAMES.forEach((n, i) => $("key").add(new Option(n, i, false, i === 2)));
+  document.querySelectorAll("select[data-default]").forEach(sel => {
+    INSTRUMENTS.forEach(([v, l]) => sel.add(new Option(l, v, false, v === sel.dataset.default)));
+  });
+  const FMT = {
+    bpm: v => v + " уд/мин", wet: v => Math.round(v * 100) + "%", "pad-vol": v => Math.round(v * 100) + "%",
+    "pad-len": v => v + (v === 1 ? " такт" : " такта"),
+    "lz-vol": v => Math.round(v * 100) + "%", "lg-vol": v => Math.round(v * 100) + "%",
+    "dp-vol": v => Math.round(v * 100) + "%", "bl-vol": v => Math.round(v * 100) + "%",
+    "lz-speed": v => v.toFixed(1) + "×", "lg-cycle": v => v + " тактов", "lg-r": v => v.toFixed(3),
+    "dp-g": v => v.toFixed(1) + " м/с²", "bl-n": v => v, "bl-speed": v => v.toFixed(1) + "×"
+  };
+  const num = id => +$(id).value;
+  function showOut(id) { const o = $(id + "-o"); if (o) o.textContent = FMT[id](num(id)); }
+  Object.keys(FMT).forEach(id => { showOut(id); $(id).addEventListener("input", () => showOut(id)); });
+
+  // ---------- music theory ----------
+  const scale = () => SCALES[$("mode").value];
+  const key = () => num("key");
+  // Scale degree (may be negative or past the octave) to MIDI, counted from a base octave.
+  function degMidi(deg, base) {
+    const sc = scale(), n = sc.length, o = Math.floor(deg / n);
+    return base + key() + 12 * o + sc[((deg % n) + n) % n];
+  }
+  const harmony = { deg: 0, history: [] };
+  const NEXT = { 0: [3, 4, 5, 1, 2], 1: [4, 6, 3], 2: [5, 3], 3: [4, 0, 1], 4: [0, 5, 3], 5: [3, 1, 4], 6: [0, 2] };
+  function nextChord() {
+    const n = scale().length;
+    const opts = n === 7 ? NEXT[harmony.deg] : [0, 1, 2, 3, 4].filter(d => d !== harmony.deg);
+    harmony.deg = opts[Math.floor(Math.random() * opts.length)] % n;
+    harmony.history.push(chordName(harmony.deg));
+    if (harmony.history.length > 8) harmony.history.shift();
+  }
+  const chordDegs = d => [d, d + 2, d + 4];
+  function chordName(d) {
+    const [r, t, f] = chordDegs(d).map(x => degMidi(x, 60));
+    const third = t - r, fifth = f - r;
+    const q = fifth === 6 ? "dim" : fifth === 8 ? "aug" : third === 3 ? "min" : "maj";
+    const root = NAMES[r % 12] + (q === "min" ? "m" : q === "dim" ? "°" : q === "aug" ? "+" : "");
+    const rn = ROMAN[d] || String(d + 1);
+    return { name: root, roman: q === "min" || q === "dim" ? rn.toLowerCase() + (q === "dim" ? "°" : "") : rn };
+  }
+  // Nearest chord tone to a MIDI note: used to land strong beats on the harmony.
+  function snapToChord(m) {
+    const pcs = chordDegs(harmony.deg).map(d => degMidi(d, 60) % 12);
+    let best = m, dist = 99;
+    for (let x = m - 6; x <= m + 6; x++) if (pcs.includes(((x % 12) + 12) % 12) && Math.abs(x - m) < dist) { best = x; dist = Math.abs(x - m); }
+    return best;
+  }
+
+  // ---------- simulations ----------
+  const sim = {
+    lz: { x: 0.1, y: 0, z: 20 },
+    lg: { r: 3.2, x: 0.41, phase: 0.08, hist: [] },
+    dp: { a1: 2.1, a2: 2.7, w1: 0, w2: 0 },
+    bl: { balls: [] }
+  };
+  function lorenzD(s) { return [10 * (s.y - s.x), s.x * (28 - s.z) - s.y, s.x * s.y - (8 / 3) * s.z]; }
+  function rk4(s, deriv, h, keys) {
+    const k1 = deriv(s);
+    const s2 = {}; keys.forEach((k, i) => { s2[k] = s[k] + k1[i] * h / 2; });
+    const k2 = deriv(s2);
+    const s3 = {}; keys.forEach((k, i) => { s3[k] = s[k] + k2[i] * h / 2; });
+    const k3 = deriv(s3);
+    const s4 = {}; keys.forEach((k, i) => { s4[k] = s[k] + k3[i] * h; });
+    const k4 = deriv(s4);
+    keys.forEach((k, i) => { s[k] += (h / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]); });
+  }
+  const LZ = ["x", "y", "z"], DP = ["a1", "a2", "w1", "w2"];
+  function pendD(s) {
+    const g = num("dp-g"), d = s.a1 - s.a2, den = 3 - Math.cos(2 * d);
+    return [
+      s.w1, s.w2,
+      (-3 * g * Math.sin(s.a1) - g * Math.sin(s.a1 - 2 * s.a2) - 2 * Math.sin(d) * (s.w2 * s.w2 + s.w1 * s.w1 * Math.cos(d))) / den,
+      (2 * Math.sin(d) * (2 * s.w1 * s.w1 + 2 * g * Math.cos(s.a1) + s.w2 * s.w2 * Math.cos(d))) / den
+    ];
+  }
+  function makeBalls() {
+    const n = num("bl-n"), balls = sim.bl.balls;
+    while (balls.length < n) {
+      const a = Math.random() * Math.PI * 2, r = 0.2 + Math.random() * 0.5, dir = Math.random() * Math.PI * 2;
+      balls.push({ x: r * Math.cos(a), y: r * Math.sin(a), vx: Math.cos(dir), vy: Math.sin(dir), trail: [] });
+    }
+    balls.length = n;
+  }
+  makeBalls();
+
+  // Advances the continuous systems by dt seconds of music time; returns the events they produced.
+  function simulate(dt) {
+    const ev = [];
+    // Lorenz: crossings of the plane z = 27.
+    let h = 0.004 * num("lz-speed") * 2, steps = Math.max(1, Math.round(dt / 0.008));
+    for (let i = 0; i < steps; i++) {
+      const z0 = sim.lz.z;
+      rk4(sim.lz, lorenzD, h, LZ);
+      if ((z0 - 27) * (sim.lz.z - 27) < 0) ev.push({ v: "lz", x: sim.lz.x, y: sim.lz.y, z: 27 });
+    }
+    // Double pendulum: the upper arm passing straight down.
+    const sub = Math.max(1, Math.ceil(dt / 0.003)), hp = dt / sub;
+    for (let i = 0; i < sub; i++) {
+      const s0 = Math.sin(sim.dp.a1);
+      rk4(sim.dp, pendD, hp, DP);
+      if (s0 * Math.sin(sim.dp.a1) < 0 && Math.cos(sim.dp.a1) > 0) ev.push({ v: "dp", up: Math.sin(sim.dp.a2) > 0 });
+    }
+    // Circular billiard: wall hits.
+    const sp = num("bl-speed") * 0.9;
+    sim.bl.balls.forEach((b, bi) => {
+      b.x += b.vx * sp * dt; b.y += b.vy * sp * dt;
+      const r = Math.hypot(b.x, b.y);
+      if (r > 1) {
+        const nx = b.x / r, ny = b.y / r, dot = b.vx * nx + b.vy * ny;
+        b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny;
+        b.x = nx * 0.999; b.y = ny * 0.999;
+        ev.push({ v: "bl", angle: Math.atan2(ny, nx), ball: bi });
+      }
+    });
+    return ev;
+  }
+  function tickLogistic() {
+    const g = sim.lg;
+    g.phase = (g.phase + 1 / (num("lg-cycle") * 8)) % 1;
+    g.r = 2.95 + 1.05 * (0.5 - 0.5 * Math.cos(2 * Math.PI * g.phase));
+    $("lg-r").value = g.r; showOut("lg-r");
+    g.x = g.r * g.x * (1 - g.x);
+    if (g.x <= 0 || g.x >= 1 || !isFinite(g.x)) g.x = 0.37;
+    g.hist.push(g.x); if (g.hist.length > 64) g.hist.shift();
+    return g.x;
+  }
+  $("lg-r").addEventListener("input", () => {
+    const r = num("lg-r");
+    sim.lg.phase = Math.acos(1 - 2 * (r - 2.95) / 1.05) / (2 * Math.PI);
+    sim.lg.r = r;
+  });
+  function periodOf(hist) {
+    if (hist.length < 48) return "…";
+    for (const p of [1, 2, 3, 4, 5, 6, 8, 12, 16]) {
+      let ok = true;
+      // r drifts a little every tick, so allow some slack when matching the orbit.
+      for (let i = hist.length - 1; i >= hist.length - 16 && ok; i--) if (Math.abs(hist[i] - hist[i - p]) > 0.015) ok = false;
+      if (ok) return "период " + p;
+    }
+    return "хаос";
+  }
+
+  // ---------- audio ----------
+  let ac = null, master, comp, analyser, echoSend, echoDelay, hallSend, conv, ch = {};
+  const buffers = {}, halls = {}, loading = {};
+  const soundsReady = new Promise((res, rej) => {
+    if (window.SOUNDS) return res();
+    const s = document.createElement("script");
+    s.src = "endless-music-sounds.js"; s.async = true;
+    s.onload = () => res(); s.onerror = () => rej(new Error("sounds"));
+    document.head.append(s);
+  });
+  soundsReady.then(() => { if (!playing) $("status").textContent = "Готово к игре"; })
+    .catch(() => { $("status").textContent = "Инструменты не загрузились, играю синтезатором"; });
+
+  function bytes(b64) {
+    const bin = atob(b64), out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out.buffer;
+  }
+  function loadInstrument(name) {
+    if (!ac || !window.SOUNDS || !SOUNDS.instruments[name]) return Promise.resolve();
+    return loading[name] = loading[name] || Promise.all(SOUNDS.instruments[name].map(n =>
+      ac.decodeAudioData(bytes(n.data)).then(buf => ({ midi: n.midi, buf }))
+    )).then(list => { buffers[name] = list; });
+  }
+  function setRoom() {
+    if (!ac || !window.SOUNDS) return Promise.resolve();
+    const name = $("room").value, k = "hall:" + name;
+    loading[k] = loading[k] || ac.decodeAudioData(bytes(SOUNDS.halls[name])).then(b => { halls[name] = b; });
+    return loading[k].then(() => { if ($("room").value === name) conv.buffer = halls[name]; });
+  }
+  async function initAudio() {
+    if (ac) return;
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    comp = ac.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 3.5;
+    analyser = ac.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.82;
+    master = ac.createGain(); master.gain.value = 0.85;
+    master.connect(comp); comp.connect(analyser); analyser.connect(ac.destination);
+    echoDelay = ac.createDelay(2); echoSend = ac.createGain(); echoSend.gain.value = 0.18;
+    const fb = ac.createGain(), tone = ac.createBiquadFilter();
+    fb.gain.value = 0.35; tone.type = "lowpass"; tone.frequency.value = 2200;
+    echoSend.connect(echoDelay); echoDelay.connect(tone).connect(fb).connect(echoDelay); tone.connect(comp);
+    conv = ac.createConvolver(); hallSend = ac.createGain();
+    hallSend.connect(conv); conv.connect(comp);
+    ["lz", "lg", "dp", "bl", "pad"].forEach(v => {
+      ch[v] = ac.createGain();
+      ch[v].connect(master); ch[v].connect(hallSend);
+      if (v !== "dp" && v !== "pad") ch[v].connect(echoSend);
+    });
+    setLevels();
+    try { await soundsReady; } catch (_) { return; }
+    await Promise.all([setRoom(), ...["lz", "lg", "dp", "bl"].map(v => loadInstrument($(v + "-inst").value))]);
+  }
+  function setLevels() {
+    if (!ac) return;
+    const now = ac.currentTime;
+    ["lz", "lg", "dp", "bl", "pad"].forEach(v => ch[v].gain.setTargetAtTime(num(v + "-vol"), now, 0.05));
+    hallSend.gain.setTargetAtTime(num("wet") * 0.85, now, 0.05);
+    echoDelay.delayTime.setTargetAtTime((60 / num("bpm")) * 0.75, now, 0.05);
+  }
+  ["lz-vol", "lg-vol", "dp-vol", "bl-vol", "pad-vol", "wet", "bpm"].forEach(id => $(id).addEventListener("input", setLevels));
+  $("room").addEventListener("change", setRoom);
+  ["lz", "lg", "dp", "bl"].forEach(v => $(v + "-inst").addEventListener("change", e => loadInstrument(e.target.value)));
+
+  const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+  function note(voice, inst, m, t, gain, pan) {
+    const out = ac.createGain(), p = ac.createStereoPanner();
+    out.gain.value = gain; p.pan.value = pan;
+    out.connect(p).connect(ch[voice]);
+    const set = buffers[inst];
+    if (set) {
+      while (m < 45) m += 12;
+      while (m > 87) m -= 12;
+      const s = set.reduce((a, b) => (Math.abs(b.midi - m) < Math.abs(a.midi - m) ? b : a));
+      const src = ac.createBufferSource();
+      src.buffer = s.buf; src.playbackRate.value = Math.pow(2, (m - s.midi) / 12);
+      src.connect(out); src.start(t);
+      return;
+    }
+    const f = hz(m);
+    const osc = (type, freq, peak, a, d, dest = out) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g).connect(dest); o.start(t); o.stop(t + d + 0.05);
+    };
+    if (inst === "glass") { osc("triangle", f, 0.5, 0.05, 2.4); osc("sine", f * 2, 0.18, 0.07, 1.8); }
+    else if (inst === "bass") {
+      const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 700; lp.connect(out);
+      osc("sine", f, 0.8, 0.01, 1.6, lp); osc("triangle", f * 2, 0.18, 0.01, 0.9, lp);
+    } else {
+      const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = 5; lp.connect(out);
+      lp.frequency.setValueAtTime(f * 8, t); lp.frequency.exponentialRampToValueAtTime(f * 1.4, t + 0.4);
+      osc("sawtooth", f, 0.35, 0.005, 0.6, lp); osc("square", f / 2, 0.14, 0.005, 0.5, lp);
+    }
+  }
+  // A slow pad: detuned saws through a filter that breathes over the chord's length.
+  function pad(t, len) {
+    const degs = chordDegs(harmony.deg);
+    const notes = [degMidi(degs[0], 48), degMidi(degs[1], 48), degMidi(degs[2], 48), degMidi(degs[0], 60)];
+    const lp = ac.createBiquadFilter(), g = ac.createGain();
+    lp.type = "lowpass"; lp.Q.value = 0.7;
+    lp.frequency.setValueAtTime(380, t);
+    lp.frequency.linearRampToValueAtTime(1500, t + len * 0.5);
+    lp.frequency.linearRampToValueAtTime(450, t + len);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.09, t + Math.min(1.6, len * 0.3));
+    g.gain.setValueAtTime(0.09, t + len * 0.85);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len + 1.6);
+    lp.connect(g).connect(ch.pad);
+    notes.forEach(m => [-7, 7].forEach(cents => {
+      const o = ac.createOscillator();
+      o.type = "sawtooth"; o.frequency.value = hz(m); o.detune.value = cents;
+      o.connect(lp); o.start(t); o.stop(t + len + 1.8);
+    }));
+  }
+
+  // ---------- transport ----------
+  let playing = false, step = 0, nextTime = 0, timer = 0, startedAt = 0;
+  const snaps = [], flashes = [];
+  const stepDur = () => 60 / num("bpm") / 4;
+  const snapshot = () => ({
+    lz: { ...sim.lz }, dp: { a1: sim.dp.a1, a2: sim.dp.a2 },
+    bl: sim.bl.balls.map(b => ({ x: b.x, y: b.y })), lg: { r: sim.lg.r, hist: sim.lg.hist.slice(-24) }
+  });
+  let view = snapshot();
+
+  function scheduleStep(t) {
+    const sd = stepDur(), barSteps = 16;
+    const chordSteps = barSteps * num("pad-len");
+    if (step % chordSteps === 0) {
+      if (step > 0) nextChord();
+      if ($("pad-on").checked) pad(t, sd * chordSteps);
+      pushUI(t, () => renderHarmony());
+    }
+    if (step % barSteps === 0) {
+      const bar = step / barSteps | 0;
+      pushUI(t, () => { $("bar").textContent = bar; });
+      if ($("dp-on").checked) note("dp", $("dp-inst").value, degMidi(harmony.deg, 36), t, 0.55, 0);
+    }
+    // Logistic map: one value per eighth note.
+    if (step % 2 === 0) {
+      const x = tickLogistic();
+      const m = degMidi(Math.floor(x * 9), 60);
+      if ($("lg-on").checked) note("lg", $("lg-inst").value, step % 8 === 0 ? snapToChord(m) : m, t, 0.32, (x - 0.5) * 0.9);
+      flashes.push({ v: "lg", t, x });
+    }
+    // Continuous systems, sliced so the picture moves smoothly between notes.
+    const n = Math.max(4, Math.ceil(sd * 60)), dt = sd / n, ev = [];
+    for (let i = 0; i < n; i++) { ev.push(...simulate(dt)); snaps.push({ t: t + (i + 1) * dt, s: snapshot() }); }
+    let lzN = 0, blN = 0, dpN = 0;
+    ev.forEach(e => {
+      if (e.v === "lz" && lzN++ < 1) {
+        const deg = Math.round((e.x + 20) / 40 * 12);
+        let m = degMidi(deg, 60);
+        if (step % 4 === 0) m = snapToChord(m);
+        if ($("lz-on").checked) note("lz", $("lz-inst").value, m, t, 0.4 + Math.min(0.3, Math.abs(e.y) / 60), e.x / 25);
+        flashes.push({ v: "lz", t, x: e.x, y: e.y, z: 27 });
+      } else if (e.v === "bl" && blN++ < 2) {
+        const frac = (e.angle + Math.PI) / (2 * Math.PI);
+        const tones = chordDegs(harmony.deg);
+        const idx = Math.floor(frac * 9);
+        const m = degMidi(tones[idx % 3] + scale().length * Math.floor(idx / 3), 60);
+        if ($("bl-on").checked) note("bl", $("bl-inst").value, m, t + (blN - 1) * sd / 2, 0.3, Math.cos(e.angle) * 0.8);
+        flashes.push({ v: "bl", t, angle: e.angle });
+      } else if (e.v === "dp" && step % 2 === 0 && step % barSteps !== 0 && dpN++ < 1) {
+        const m = degMidi(harmony.deg + (e.up ? 4 : 7), 36);
+        if ($("dp-on").checked) note("dp", $("dp-inst").value, m, t, 0.38, 0);
+        flashes.push({ v: "dp", t });
+      }
+    });
+    step++;
+  }
+  const uiQueue = [];
+  function pushUI(t, fn) { uiQueue.push({ t, fn }); }
+
+  function scheduler() {
+    if (nextTime < ac.currentTime - 0.1) nextTime = ac.currentTime + 0.05; // a background tab slept; skip ahead
+    while (nextTime < ac.currentTime + 0.15) { scheduleStep(nextTime); nextTime += stepDur(); }
+  }
+  async function start() {
+    $("play").disabled = true;
+    $("status").textContent = window.SOUNDS ? "Распаковываю инструменты" : "Загружаю инструменты (10 МБ)";
+    await initAudio();
+    if (ac.state === "suspended") await ac.resume();
+    $("play").disabled = false;
+    if (playing) return;
+    playing = true; nextTime = ac.currentTime + 0.08; flashes.length = 0;
+    if (!startedAt) startedAt = ac.currentTime;
+    timer = setInterval(scheduler, 25); scheduler();
+    $("play").textContent = "Пауза"; $("status").textContent = "Играет";
+  }
+  function stop() {
+    playing = false; clearInterval(timer);
+    snaps.length = 0; uiQueue.length = 0; flashes.length = 0;
+    $("play").textContent = "Играть"; $("status").textContent = "На паузе";
+  }
+  $("play").addEventListener("click", () => (playing ? stop() : start()));
+  addEventListener("keydown", e => {
+    if (e.key === " " && !e.target.closest("input, select, textarea, button")) { e.preventDefault(); $("play").click(); }
+  });
+  $("lz-shake").addEventListener("click", () => { Object.assign(sim.lz, { x: Math.random() * 20 - 10, y: Math.random() * 20 - 10, z: 10 + Math.random() * 25 }); trails.lz.length = 0; });
+  $("dp-shake").addEventListener("click", () => { Object.assign(sim.dp, { a1: 1.6 + Math.random() * 1.4, a2: 1.5 + Math.random() * 1.6, w1: 0, w2: 0 }); trails.dp.length = 0; });
+  $("bl-n").addEventListener("input", makeBalls);
+  ["key", "mode"].forEach(id => $(id).addEventListener("change", () => {
+    if (harmony.deg >= scale().length) harmony.deg = 0;
+    harmony.history = [chordName(harmony.deg)]; renderHarmony();
+  }));
+
+  // ---------- drawing ----------
+  let C = {};
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim();
+    C = { ink: g("--ink"), soft: g("--ink-soft"), rule: g("--rule"), panel: g("--panel"), accent: g("--accent"), lz: g("--lz"), lg: g("--lg"), dp: g("--dp"), bl: g("--bl") };
+    bifurcation = null;
+  }
+  function alpha(hex, a) {
+    const n = parseInt(hex.replace("#", ""), 16);
+    return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${a})`;
+  }
+  function fit(c) {
+    const d = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+    if (c.width !== Math.round(w * d) || c.height !== Math.round(h * d)) { c.width = Math.round(w * d); c.height = Math.round(h * d); }
+    const g = c.getContext("2d"); g.setTransform(d, 0, 0, d, 0, 0);
+    return [g, w, h];
+  }
+  const trails = { lz: [], dp: [] };
+  const recent = (v, now, life) => flashes.filter(f => f.v === v && now - f.t >= 0 && now - f.t < life);
+  let spin = 0;
+
+  function drawLorenz(now) {
+    const [g, w, h] = fit($("cv-lz"));
+    g.clearRect(0, 0, w, h);
+    trails.lz.push([view.lz.x, view.lz.y, view.lz.z]);
+    if (trails.lz.length > 1800) trails.lz.shift();
+    if (!reduce) spin += 0.0015;
+    const cs = Math.cos(spin), sn = Math.sin(spin), sc = Math.min(w / 56, h / 54);
+    const P = ([x, y, z]) => [w / 2 + (x * cs + y * sn) * sc, h - 10 - z * sc * 0.95];
+    // the plane z = 27 where notes happen
+    const py = P([0, 0, 27])[1];
+    g.strokeStyle = C.rule; g.setLineDash([4, 5]); g.beginPath(); g.moveTo(10, py); g.lineTo(w - 10, py); g.stroke(); g.setLineDash([]);
+    g.fillStyle = C.soft; g.font = '11px "JetBrains Mono", monospace'; g.fillText("z = 27", 12, py - 6);
+    g.lineWidth = 1.1;
+    const pts = trails.lz, n = pts.length;
+    for (let i = 1; i < n; i += 20) {
+      g.strokeStyle = alpha(C.lz, 0.12 + 0.75 * (i / n));
+      g.beginPath();
+      let p = P(pts[i - 1]); g.moveTo(p[0], p[1]);
+      for (let j = i; j < Math.min(n, i + 20); j++) { p = P(pts[j]); g.lineTo(p[0], p[1]); }
+      g.stroke();
+    }
+    const head = P(pts[n - 1]);
+    g.fillStyle = C.lz; g.beginPath(); g.arc(head[0], head[1], 4, 0, Math.PI * 2); g.fill();
+    recent("lz", now, 0.8).forEach(f => {
+      const [x, y] = P([f.x, f.y, f.z]), k = 1 - (now - f.t) / 0.8;
+      g.strokeStyle = alpha(C.lz, k); g.lineWidth = 2;
+      g.beginPath(); g.arc(x, y, 6 + (1 - k) * 18, 0, Math.PI * 2); g.stroke();
+    });
+    g.lineWidth = 1;
+  }
+
+  let bifurcation = null;
+  function bifImage(w, h, d) {
+    const c = document.createElement("canvas");
+    c.width = Math.round(w * d); c.height = Math.round(h * d);
+    const g = c.getContext("2d"); g.scale(d, d);
+    g.fillStyle = alpha(C.lg, 0.16);
+    for (let px = 0; px < w; px += 0.5) {
+      const r = 2.95 + 1.05 * px / w; let x = 0.5;
+      for (let i = 0; i < 250; i++) x = r * x * (1 - x);
+      for (let i = 0; i < 120; i++) { x = r * x * (1 - x); g.fillRect(px, (1 - x) * (h - 20) + 10, 0.6, 0.6); }
+    }
+    return c;
+  }
+  function drawLogistic(now) {
+    const cv = $("cv-lg"), [g, w, h] = fit(cv), d = devicePixelRatio || 1;
+    if (!bifurcation || bifurcation.w !== w || bifurcation.h !== h) bifurcation = { w, h, img: bifImage(w, h, d) };
+    g.clearRect(0, 0, w, h);
+    g.drawImage(bifurcation.img, 0, 0, w, h);
+    const r = view.lg.r, X = (r - 2.95) / 1.05 * w;
+    g.strokeStyle = C.lg; g.lineWidth = 1.5; g.beginPath(); g.moveTo(X, 6); g.lineTo(X, h - 6); g.stroke();
+    view.lg.hist.forEach((x, i, a) => {
+      const k = (i + 1) / a.length;
+      g.fillStyle = alpha(C.lg, 0.2 + 0.8 * k);
+      g.beginPath(); g.arc(X, (1 - x) * (h - 20) + 10, 2 + 3 * k, 0, Math.PI * 2); g.fill();
+    });
+    recent("lg", now, 0.3).forEach(f => {
+      const k = 1 - (now - f.t) / 0.3;
+      g.strokeStyle = alpha(C.lg, k); g.lineWidth = 2;
+      g.beginPath(); g.moveTo(X - 14, (1 - f.x) * (h - 20) + 10); g.lineTo(X + 14, (1 - f.x) * (h - 20) + 10); g.stroke();
+    });
+    g.lineWidth = 1;
+    g.fillStyle = C.ink; g.font = '12px "JetBrains Mono", monospace';
+    g.fillText(`r = ${r.toFixed(3)} · ${periodOf(sim.lg.hist)}`, 12, 20);
+    g.fillStyle = C.soft; g.font = '11px "JetBrains Mono", monospace';
+    g.fillText("2,95", 6, h - 6); g.fillText("4,00", w - 34, h - 6);
+  }
+
+  function drawPendulum(now) {
+    const [g, w, h] = fit($("cv-dp"));
+    g.clearRect(0, 0, w, h);
+    const L = Math.min(w, h) * 0.23, ox = w / 2, oy = h * 0.47;
+    const x1 = ox + L * Math.sin(view.dp.a1), y1 = oy + L * Math.cos(view.dp.a1);
+    const x2 = x1 + L * Math.sin(view.dp.a2), y2 = y1 + L * Math.cos(view.dp.a2);
+    trails.dp.push([x2, y2]); if (trails.dp.length > 500) trails.dp.shift();
+    const t = trails.dp;
+    for (let i = 1; i < t.length; i++) {
+      g.strokeStyle = alpha(C.dp, (i / t.length) * 0.7);
+      g.beginPath(); g.moveTo(t[i - 1][0], t[i - 1][1]); g.lineTo(t[i][0], t[i][1]); g.stroke();
+    }
+    // the note line: straight down from the pivot
+    g.strokeStyle = C.rule; g.setLineDash([4, 5]); g.beginPath(); g.moveTo(ox, oy); g.lineTo(ox, oy + L * 1.1); g.stroke(); g.setLineDash([]);
+    recent("dp", now, 0.6).forEach(f => {
+      const k = 1 - (now - f.t) / 0.6;
+      g.fillStyle = alpha(C.dp, 0.35 * k); g.beginPath(); g.arc(ox, oy + L, 10 + 26 * (1 - k), 0, Math.PI * 2); g.fill();
+    });
+    g.strokeStyle = C.ink; g.lineWidth = 2.5; g.lineCap = "round";
+    g.beginPath(); g.moveTo(ox, oy); g.lineTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+    g.lineWidth = 1;
+    g.fillStyle = C.ink; g.beginPath(); g.arc(ox, oy, 3.5, 0, Math.PI * 2); g.fill();
+    g.fillStyle = C.dp; g.beginPath(); g.arc(x1, y1, 8, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(x2, y2, 8, 0, Math.PI * 2); g.fill();
+  }
+
+  function drawBilliard(now) {
+    const [g, w, h] = fit($("cv-bl"));
+    g.clearRect(0, 0, w, h);
+    const R = Math.min(w, h) * 0.42, cx = w / 2, cy = h / 2;
+    g.strokeStyle = C.rule; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
+    // nine pitch zones around the rim
+    g.fillStyle = C.soft;
+    for (let i = 0; i < 9; i++) {
+      const a = -Math.PI + (i / 9) * Math.PI * 2;
+      g.fillRect(cx + Math.cos(a) * (R + 4) - 1, cy + Math.sin(a) * (R + 4) - 1, 2, 2);
+    }
+    recent("bl", now, 0.7).forEach(f => {
+      const k = 1 - (now - f.t) / 0.7;
+      g.strokeStyle = alpha(C.bl, k); g.lineWidth = 4;
+      g.beginPath(); g.arc(cx, cy, R, f.angle - 0.12 - 0.1 * (1 - k), f.angle + 0.12 + 0.1 * (1 - k)); g.stroke();
+    });
+    g.lineWidth = 1;
+    view.bl.forEach((b, i) => {
+      const ball = sim.bl.balls[i]; if (!ball) return;
+      ball.trail.push([cx + b.x * R, cy + b.y * R]); if (ball.trail.length > 260) ball.trail.shift();
+      const t = ball.trail;
+      for (let j = 1; j < t.length; j++) {
+        g.strokeStyle = alpha(C.bl, (j / t.length) * 0.55);
+        g.beginPath(); g.moveTo(t[j - 1][0], t[j - 1][1]); g.lineTo(t[j][0], t[j][1]); g.stroke();
+      }
+      g.fillStyle = C.bl; g.beginPath(); g.arc(cx + b.x * R, cy + b.y * R, 6, 0, Math.PI * 2); g.fill();
+    });
+  }
+
+  let specData = null;
+  function drawSpectrum() {
+    const [g, w, h] = fit($("spectrum"));
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = C.rule; g.fillRect(0, h - 1, w, 1);
+    if (!analyser) return;
+    specData = specData || new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(specData);
+    const bars = Math.max(24, Math.floor(w / 7)), bw = w / bars, nyq = ac.sampleRate / 2, n = specData.length;
+    for (let i = 0; i < bars; i++) {
+      const f0 = 40 * Math.pow(9000 / 40, i / bars), f1 = 40 * Math.pow(9000 / 40, (i + 1) / bars);
+      const a = Math.floor(f0 / nyq * n), b = Math.max(a + 1, Math.floor(f1 / nyq * n));
+      let v = 0; for (let k = a; k < b; k++) v = Math.max(v, specData[k]);
+      g.fillStyle = alpha(C.accent, 0.3 + 0.7 * v / 255);
+      g.fillRect(i * bw + 1, h - 1 - (v / 255) * (h - 4), Math.max(1, bw - 2), (v / 255) * (h - 4));
+    }
+  }
+
+  function renderHarmony() {
+    const c = chordName(harmony.deg);
+    $("chord").textContent = c.name; $("roman").textContent = c.roman;
+    $("chips").replaceChildren(...harmony.history.map(h => Object.assign(document.createElement("span"), { className: "chip", textContent: h.name })));
+  }
+
+  // When stopped, the systems keep moving silently so the page is alive at rest.
+  let last = performance.now(), idleAcc = 0;
+  function frame(ts) {
+    const dt = Math.min(0.05, (ts - last) / 1000); last = ts;
+    let now;
+    if (playing && ac) {
+      now = ac.currentTime;
+      while (snaps.length && snaps[0].t <= now) view = snaps.shift().s;
+      while (uiQueue.length && uiQueue[0].t <= now) uiQueue.shift().fn();
+      const el = Math.floor(now - startedAt);
+      $("clock").textContent = Math.floor(el / 60) + ":" + String(el % 60).padStart(2, "0");
+    } else {
+      now = performance.now() / 1000;
+      if (!reduce) {
+        simulate(dt).forEach(e => flashes.push({ ...e, t: now }));
+        idleAcc += dt;
+        if (idleAcc > stepDur() * 2) { idleAcc = 0; flashes.push({ v: "lg", t: now, x: tickLogistic() }); }
+      }
+      view = snapshot();
+    }
+    while (flashes.length && now - flashes[0].t > 2) flashes.shift();
+    drawLorenz(now); drawLogistic(now); drawPendulum(now); drawBilliard(now); drawSpectrum();
+    requestAnimationFrame(frame);
+  }
+
+  readColors();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readColors);
+  new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  // Warm the systems up so the first frame shows a developed trajectory.
+  for (let i = 0; i < 400; i++) { simulate(1 / 60); const s = snapshot(); trails.lz.push([s.lz.x, s.lz.y, s.lz.z]); }
+  for (let i = 0; i < 40; i++) tickLogistic();
+  harmony.history.push(chordName(harmony.deg));
+  renderHarmony();
+  if (reduce) { view = snapshot(); }
+  requestAnimationFrame(frame);
+})();
+</script>
