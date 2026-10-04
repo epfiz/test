@@ -81,6 +81,19 @@
   .meter b { color: var(--ink); font-weight: 500; }
   #spectrum { width: 100%; height: 48px; display: block; }
 
+  .conductor { grid-template-columns: minmax(0, 1fr) minmax(0, 300px); align-items: start; }
+  @media (max-width: 760px) { .conductor { grid-template-columns: minmax(0, 1fr); } }
+  .cond-main { display: grid; gap: 10px; min-width: 0; }
+  .cond-head { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+  .switch { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; font-weight: 500; }
+  .switch input { accent-color: var(--accent); width: 18px; height: 18px; }
+  #arc { width: 100%; height: 110px; display: block; }
+  .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; min-width: 0; }
+  .log li { display: grid; grid-template-columns: 4.5em minmax(0, 1fr); gap: 8px; color: var(--ink-soft); }
+  .log li:first-child { color: var(--ink); }
+  .log .when { font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .log-title { margin-bottom: 4px; }
+
   .bank { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   @media (max-width: 760px) { .bank { grid-template-columns: minmax(0, 1fr); } }
   .sys {
@@ -167,6 +180,21 @@
         <div class="row-head"><label class="label" for="pad-len">Аккорд длится</label><output id="pad-len-o"></output></div>
         <input id="pad-len" type="range" min="1" max="4" step="1" value="2">
       </div>
+    </div>
+  </section>
+
+  <section class="console conductor" aria-label="Дирижёр">
+    <div class="cond-main">
+      <div class="cond-head">
+        <label class="switch"><input type="checkbox" id="drift" checked> Композиция дрейфует</label>
+        <div class="now"><b id="section">Вступление</b><span id="tonality"></span></div>
+        <div class="meter"><span>Энергия <b id="energy">0%</b></span><span>Темп сейчас <b id="tempo">84</b></span></div>
+      </div>
+      <canvas id="arc" aria-label="Кривая энергии композиции: прошлое слева, будущее справа"></canvas>
+    </div>
+    <div>
+      <div class="label log-title">Что решил дирижёр</div>
+      <ol class="log" id="log"><li><span class="when">—</span><span>Нажмите «Играть», и пьеса начнётся с тихого вступления.</span></li></ol>
     </div>
   </section>
 
@@ -271,6 +299,7 @@
   </div>
 
   <p class="how">Все системы считаются в реальном времени, а ноты привязаны к сетке шестнадцатых, поэтому хаос звучит в ритме. Лоренц играет, когда траектория пересекает плоскость z = 27. Логистическое отображение играет каждую восьмую, а r медленно идёт к хаосу и обратно: сначала одна нота повторяется, потом две, четыре, восемь, и наконец начинается хаос с короткими островками порядка, например окном периода 3 около r = 3,83. Ползунок «Сейчас r» показывает, где мы, и его можно перетащить. Клавиша <kbd>Пробел</kbd> запускает и ставит на паузу.</p>
+  <p class="how">Дирижёр управляет формой. Энергия пьесы задана суммой трёх медленных синусоид со случайными фазами, поэтому каждый запуск получает свою, неповторимую форму. Каждые 8 тактов начинается новый раздел. По энергии дирижёр решает, какие партии вступают и как громко, сколько длится аккорд, как быстро движутся системы. Каждый третий раздел он модулирует в соседнюю тональность: на квинту вверх или вниз либо в другой лад на тех же нотах. Такие переходы меняют одну ноту из семи или ни одной, поэтому звучат мягко. Перед модуляцией раздел заканчивается на доминанте, а новый начинается с тоники. Мелодия иногда возвращает мотив, сыгранный пару тактов назад, переложенный на новый аккорд: так в случайности появляется память. Чтобы управлять всем вручную, снимите галочку «Композиция дрейфует».</p>
 </div>
 
 <script>
@@ -318,9 +347,7 @@
   function nextChord() {
     const n = scale().length;
     const opts = n === 7 ? NEXT[harmony.deg] : [0, 1, 2, 3, 4].filter(d => d !== harmony.deg);
-    harmony.deg = opts[Math.floor(Math.random() * opts.length)] % n;
-    harmony.history.push(chordName(harmony.deg));
-    if (harmony.history.length > 8) harmony.history.shift();
+    setChord(opts[Math.floor(Math.random() * opts.length)] % n);
   }
   const chordDegs = d => [d, d + 2, d + 4];
   function chordName(d) {
@@ -484,6 +511,8 @@
     setLevels();
     try { await soundsReady; } catch (_) { return; }
     await Promise.all([setRoom(), ...["lz", "lg", "dp", "bl"].map(v => loadInstrument($(v + "-inst").value))]);
+    // The conductor swaps instruments later; unpack the rest in the background so a swap never falls back to the synth.
+    Object.keys(SOUNDS.instruments).forEach(loadInstrument);
   }
   function setLevels() {
     if (!ac) return;
@@ -552,53 +581,181 @@
   // ---------- transport ----------
   let playing = false, step = 0, nextTime = 0, timer = 0, startedAt = 0;
   const snaps = [], flashes = [];
-  const stepDur = () => 60 / num("bpm") / 4;
+  const stepDur = () => 60 / (num("bpm") + cond.tempo) / 4;
   const snapshot = () => ({
     lz: { ...sim.lz }, dp: { a1: sim.dp.a1, a2: sim.dp.a2 },
     bl: sim.bl.balls.map(b => ({ x: b.x, y: b.y })), lg: { r: sim.lg.r, hist: sim.lg.hist.slice(-24) }
   });
   let view = snapshot();
 
+  // ---------- conductor: slow form, energy, modulation, motif memory ----------
+  const PARENT = { major: 0, dorian: 2, minor: 9, lydian: 5, pent: 0 };
+  const MODE_NAMES = { major: "мажор", minor: "минор", dorian: "дорийский", lydian: "лидийский", pent: "пентатоника" };
+  const VOICE_NAMES = { lz: "Лоренц", lg: "Логистика", bl: "Бильярд" };
+  const POOLS = { lz: ["celesta", "musicbox", "harp", "glass"], lg: ["marimba", "harp", "kalimba", "musicbox"], bl: ["kalimba", "celesta", "musicbox", "glass"] };
+  const SECTION_BARS = 8;
+  const cond = {
+    phase: Array.from({ length: 4 }, () => Math.random() * Math.PI * 2),
+    section: -1, name: "Вступление", chordLeft: 0, justModulated: false,
+    motifs: [], cur: [], log: [], tempo: 0, energy: 0, shownBar: 0
+  };
+  const drifting = () => $("drift").checked;
+  // Three slow sines with random phases: every run gets its own arc, and it always opens quietly.
+  function energy(bar) {
+    const p = cond.phase, tau = 2 * Math.PI;
+    let e = 0.5 + 0.27 * Math.sin(tau * bar / 64 + p[0]) + 0.14 * Math.sin(tau * bar / 23 + p[1]) + 0.07 * Math.sin(tau * bar / 9.7 + p[2]);
+    e *= Math.min(1, 0.3 + Math.max(0, bar) / 20);
+    return Math.max(0.05, Math.min(1, e));
+  }
+  function sectionName(i, e, slope) {
+    if (i === 0) return "Вступление";
+    if (e > 0.72) return "Кульминация";
+    if (e < 0.3) return "Затишье";
+    return slope > 0 ? "Развитие" : "Отражение";
+  }
+  function logEvent(bar, text) {
+    cond.log.unshift({ bar, text });
+    if (cond.log.length > 7) cond.log.length = 7;
+  }
+  function setControl(id, value, evt = "input") {
+    const el = $(id);
+    if (String(el.value) === String(value)) return;
+    el.value = value; el.dispatchEvent(new Event(evt));
+  }
+  // Moves a slider part of the way to its target, so the arrangement shifts over several bars.
+  function glide(id, target, k = 0.3) {
+    const v = num(id), nv = Math.abs(target - v) < 0.06 ? target : v + (target - v) * k;
+    setControl(id, +nv.toFixed(3));
+  }
+  function setChord(d) {
+    harmony.deg = d;
+    harmony.history.push(chordName(d));
+    if (harmony.history.length > 8) harmony.history.shift();
+  }
+  // Smooth modulations only: a fifth up or down (one note changes) or another mode on the same notes (none change).
+  function modulate(bar) {
+    const mode = $("mode").value, parent = (key() - PARENT[mode] + 12) % 12;
+    let newMode = mode, newParent = parent;
+    if (mode !== "pent" && Math.random() < 0.45) {
+      const others = ["major", "dorian", "minor", "lydian"].filter(m => m !== mode);
+      newMode = others[Math.floor(Math.random() * others.length)];
+    } else {
+      newParent = (parent + (Math.random() < 0.5 ? 7 : 5)) % 12;
+    }
+    const newKey = (newParent + PARENT[newMode]) % 12;
+    $("mode").value = newMode; $("key").value = newKey;
+    harmony.deg = 0; harmony.history = [];
+    cond.justModulated = true;
+    logEvent(bar, `Модуляция в ${NAMES[newKey]} ${MODE_NAMES[newMode]}`);
+  }
+  function swapInstrument(bar) {
+    const v = ["lz", "lg", "bl"][Math.floor(Math.random() * 3)], sel = $(v + "-inst");
+    const pool = POOLS[v].filter(x => x !== sel.value), pick = pool[Math.floor(Math.random() * pool.length)];
+    setControl(v + "-inst", pick, "change");
+    logEvent(bar, `${VOICE_NAMES[v]} берёт инструмент: ${sel.options[sel.selectedIndex].text.toLowerCase()}`);
+  }
+  function snapToScale(m) {
+    const pcs = scale().map(x => (x + key()) % 12);
+    for (let d = 0; d < 6; d++) for (const x of [m - d, m + d]) if (pcs.includes(((x % 12) + 12) % 12)) return x;
+    return m;
+  }
+  // Replays a motif from a couple of bars ago, moved onto the current chord and up an octave.
+  function recallMotif(bar, t) {
+    const back = 2 + Math.floor(Math.random() * 2), src = cond.motifs[cond.motifs.length - back];
+    if (!src || src.length < 2) return;
+    const root = degMidi(harmony.deg, 60), sd = stepDur();
+    if ($("lz-on").checked) src.forEach(n => note("lz", $("lz-inst").value, snapToScale(root + n.rel + 12), t + n.off * sd, 0.24, -0.55));
+    src.forEach(n => flashes.push({ v: "echo", t: t + n.off * sd }));
+    logEvent(bar, `Мелодия вспоминает мотив из такта ${bar - back}`);
+  }
+
+  function onBar(bar, t) {
+    const e = energy(bar);
+    cond.energy = e;
+    cond.motifs.push(cond.cur); cond.cur = [];
+    if (cond.motifs.length > 8) cond.motifs.shift();
+    if (!drifting()) { cond.tempo = 0; return; }
+    cond.tempo = 3.5 * Math.sin(2 * Math.PI * bar / 52 + cond.phase[3]);
+    const sec = Math.floor(bar / SECTION_BARS);
+    if (sec !== cond.section) {
+      cond.section = sec;
+      cond.name = sectionName(sec, e, energy(bar + 4) - e);
+      logEvent(bar, `Раздел: ${cond.name.toLowerCase()}`);
+      if (sec > 0 && sec % 3 === 0) modulate(bar);
+      if (sec > 0 && Math.random() < 0.4) swapInstrument(bar);
+      setControl("pad-len", e > 0.7 ? 1 : e < 0.35 ? 4 : 2);
+      cond.chordLeft = 0;
+    }
+    glide("lz-vol", e > 0.12 ? 0.45 + 0.35 * e : 0.25);
+    glide("lg-vol", e > 0.25 ? 0.2 + 0.45 * e : 0);
+    glide("dp-vol", e > 0.3 ? 0.45 + 0.35 * e : 0);
+    glide("bl-vol", e > 0.45 ? 0.15 + 0.6 * (e - 0.45) : 0);
+    glide("pad-vol", 0.35 + 0.3 * (1 - e));
+    glide("lz-speed", 0.6 + 0.8 * e);
+    glide("bl-speed", 0.5 + 1.2 * e);
+    if (bar > 3 && Math.random() < (cond.name === "Отражение" || cond.name === "Затишье" ? 0.45 : 0.2)) recallMotif(bar, t);
+  }
+
+  function chooseChord(bar) {
+    const len = num("pad-len"), inBar = bar % SECTION_BARS;
+    if (bar === 0) return;
+    if (drifting() && cond.justModulated) { cond.justModulated = false; setChord(0); return; }
+    // Half cadence: the chord that closes a section is the dominant, so the next one lands home.
+    if (drifting() && scale().length === 7 && inBar !== 0 && inBar + len >= SECTION_BARS) { setChord(4); return; }
+    if (drifting() && inBar === 0 && Math.random() < 0.4) { setChord(0); return; }
+    nextChord();
+  }
+
   function scheduleStep(t) {
     const sd = stepDur(), barSteps = 16;
-    const chordSteps = barSteps * num("pad-len");
-    if (step % chordSteps === 0) {
-      if (step > 0) nextChord();
-      if ($("pad-on").checked) pad(t, sd * chordSteps);
-      pushUI(t, () => renderHarmony());
-    }
+    const e = drifting() ? cond.energy : 1;
     if (step % barSteps === 0) {
       const bar = step / barSteps | 0;
-      pushUI(t, () => { $("bar").textContent = bar; });
+      onBar(bar, t);
+      if (cond.chordLeft <= 0) {
+        chooseChord(bar);
+        const len = num("pad-len");
+        if ($("pad-on").checked) pad(t, sd * barSteps * len);
+        cond.chordLeft = len;
+      }
+      cond.chordLeft--;
+      const snap = { bar, name: drifting() ? cond.name : "Ручное управление", e: cond.energy, tempo: num("bpm") + cond.tempo, log: cond.log.slice() };
+      pushUI(t, () => { renderHarmony(); renderConductor(snap); });
       if ($("dp-on").checked) note("dp", $("dp-inst").value, degMidi(harmony.deg, 36), t, 0.55, 0);
     }
-    // Logistic map: one value per eighth note.
+    // Logistic map: one value per eighth note; in quiet passages only on the beat.
     if (step % 2 === 0) {
       const x = tickLogistic();
       const m = degMidi(Math.floor(x * 9), 60);
-      if ($("lg-on").checked) note("lg", $("lg-inst").value, step % 8 === 0 ? snapToChord(m) : m, t, 0.32, (x - 0.5) * 0.9);
+      const play = e > 0.4 || step % 4 === 0;
+      if ($("lg-on").checked && play) note("lg", $("lg-inst").value, step % 8 === 0 ? snapToChord(m) : m, t, 0.32, (x - 0.5) * 0.9);
       flashes.push({ v: "lg", t, x });
     }
     // Continuous systems, sliced so the picture moves smoothly between notes.
     const n = Math.max(4, Math.ceil(sd * 60)), dt = sd / n, ev = [];
     for (let i = 0; i < n; i++) { ev.push(...simulate(dt)); snaps.push({ t: t + (i + 1) * dt, s: snapshot() }); }
     let lzN = 0, blN = 0, dpN = 0;
-    ev.forEach(e => {
-      if (e.v === "lz" && lzN++ < 1) {
-        const deg = Math.round((e.x + 20) / 40 * 12);
+    const blMax = e > 0.6 ? 2 : 1;
+    ev.forEach(ev1 => {
+      if (ev1.v === "lz" && lzN++ < 1) {
+        const deg = Math.round((ev1.x + 20) / 40 * 12);
         let m = degMidi(deg, 60);
         if (step % 4 === 0) m = snapToChord(m);
-        if ($("lz-on").checked) note("lz", $("lz-inst").value, m, t, 0.4 + Math.min(0.3, Math.abs(e.y) / 60), e.x / 25);
-        flashes.push({ v: "lz", t, x: e.x, y: e.y, z: 27 });
-      } else if (e.v === "bl" && blN++ < 2) {
-        const frac = (e.angle + Math.PI) / (2 * Math.PI);
+        const sounds = Math.random() < 0.45 + 0.55 * e;
+        if ($("lz-on").checked && sounds) {
+          note("lz", $("lz-inst").value, m, t, 0.4 + Math.min(0.3, Math.abs(ev1.y) / 60), ev1.x / 25);
+          cond.cur.push({ off: step % barSteps, rel: m - degMidi(harmony.deg, 60) });
+        }
+        flashes.push({ v: "lz", t, x: ev1.x, y: ev1.y, z: 27 });
+      } else if (ev1.v === "bl" && blN++ < blMax) {
+        const frac = (ev1.angle + Math.PI) / (2 * Math.PI);
         const tones = chordDegs(harmony.deg);
         const idx = Math.floor(frac * 9);
         const m = degMidi(tones[idx % 3] + scale().length * Math.floor(idx / 3), 60);
-        if ($("bl-on").checked) note("bl", $("bl-inst").value, m, t + (blN - 1) * sd / 2, 0.3, Math.cos(e.angle) * 0.8);
-        flashes.push({ v: "bl", t, angle: e.angle });
-      } else if (e.v === "dp" && step % 2 === 0 && step % barSteps !== 0 && dpN++ < 1) {
-        const m = degMidi(harmony.deg + (e.up ? 4 : 7), 36);
+        if ($("bl-on").checked) note("bl", $("bl-inst").value, m, t + (blN - 1) * sd / 2, 0.3, Math.cos(ev1.angle) * 0.8);
+        flashes.push({ v: "bl", t, angle: ev1.angle });
+      } else if (ev1.v === "dp" && step % 2 === 0 && step % barSteps !== 0 && dpN++ < 1) {
+        const m = degMidi(harmony.deg + (ev1.up ? 4 : 7), 36);
         if ($("dp-on").checked) note("dp", $("dp-inst").value, m, t, 0.38, 0);
         flashes.push({ v: "dp", t });
       }
@@ -802,6 +959,45 @@
     }
   }
 
+  function renderConductor(c) {
+    cond.shownBar = c.bar;
+    $("bar").textContent = c.bar;
+    $("section").textContent = c.name;
+    $("energy").textContent = Math.round(c.e * 100) + "%";
+    $("tempo").textContent = Math.round(c.tempo);
+    $("tonality").textContent = NAMES[key()] + " " + MODE_NAMES[$("mode").value];
+    if (c.log.length) $("log").replaceChildren(...c.log.map(l => {
+      const li = document.createElement("li");
+      li.append(Object.assign(document.createElement("span"), { className: "when", textContent: "такт " + l.bar }),
+        Object.assign(document.createElement("span"), { textContent: l.text }));
+      return li;
+    }));
+  }
+  // The energy arc: 24 bars of the past on the left, 40 of the future on the right.
+  function drawArc() {
+    const [g, w, h] = fit($("arc"));
+    g.clearRect(0, 0, w, h);
+    const now = cond.shownBar, from = now - 24, to = now + 40;
+    const X = b => (b - from) / (to - from) * w, Y = e => h - 16 - e * (h - 26);
+    g.fillStyle = C.soft; g.font = '11px "JetBrains Mono", monospace';
+    for (let b = Math.ceil(from / SECTION_BARS) * SECTION_BARS; b <= to; b += SECTION_BARS) {
+      if (b < 0) continue;
+      g.fillStyle = C.rule; g.fillRect(X(b), 4, 1, h - 20);
+      if ((b / SECTION_BARS) % 3 === 0 && b > 0) { g.fillStyle = C.soft; g.fillText("модуляция", X(b) + 3, 14); }
+      g.fillStyle = C.soft; g.fillText(String(b), X(b) + 3, h - 3);
+    }
+    if (!drifting()) { g.fillStyle = C.soft; g.fillText("Дирижёр отдыхает: всем управляете вы", 8, h / 2); return; }
+    g.beginPath();
+    for (let b = Math.max(0, from); b <= to; b += 0.5) { const x = X(b), y = Y(energy(b)); b === Math.max(0, from) ? g.moveTo(x, y) : g.lineTo(x, y); }
+    g.strokeStyle = alpha(C.accent, 0.35); g.lineWidth = 2; g.stroke();
+    g.save(); g.beginPath(); g.rect(0, 0, X(now), h); g.clip();
+    g.beginPath();
+    for (let b = Math.max(0, from); b <= now; b += 0.5) { const x = X(b), y = Y(energy(b)); b === Math.max(0, from) ? g.moveTo(x, y) : g.lineTo(x, y); }
+    g.strokeStyle = C.accent; g.lineWidth = 2.5; g.stroke(); g.restore();
+    g.lineWidth = 1;
+    g.fillStyle = C.accent; g.beginPath(); g.arc(X(now), Y(energy(now)), 5, 0, Math.PI * 2); g.fill();
+  }
+
   function renderHarmony() {
     const c = chordName(harmony.deg);
     $("chord").textContent = c.name; $("roman").textContent = c.roman;
@@ -829,7 +1025,7 @@
       view = snapshot();
     }
     while (flashes.length && now - flashes[0].t > 2) flashes.shift();
-    drawLorenz(now); drawLogistic(now); drawPendulum(now); drawBilliard(now); drawSpectrum();
+    drawLorenz(now); drawLogistic(now); drawPendulum(now); drawBilliard(now); drawSpectrum(); drawArc();
     requestAnimationFrame(frame);
   }
 
@@ -841,6 +1037,8 @@
   for (let i = 0; i < 40; i++) tickLogistic();
   harmony.history.push(chordName(harmony.deg));
   renderHarmony();
+  $("tonality").textContent = NAMES[key()] + " " + MODE_NAMES[$("mode").value];
+  $("drift").addEventListener("change", () => { if (!drifting()) $("section").textContent = "Ручное управление"; });
   if (reduce) { view = snapshot(); }
   requestAnimationFrame(frame);
 })();
