@@ -1,0 +1,431 @@
+<title>Шкатулка «Жизнь»</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Golos+Text:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a music-box drum laid flat — note names down the left like the comb, time runs left to right; controls sit under the drum. */
+  :root {
+    --ground: #e9efec;
+    --drum: #f7faf8;
+    --ink: #14302a;
+    --ink-soft: #587069;
+    --rule: #cfdbd6;
+    --pin: #1f7a63;
+    --spark: #d9792b;
+    --head: rgba(31, 122, 99, 0.12);
+    --font-display: "Rubik Mono One", "Arial Black", system-ui, sans-serif;
+    --font-body: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0d1513; --drum: #13201c; --ink: #e2efea; --ink-soft: #8ea89f;
+      --rule: #23352f; --pin: #5fd3ae; --spark: #ffb36b; --head: rgba(95, 211, 174, 0.12);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0d1513; --drum: #13201c; --ink: #e2efea; --ink-soft: #8ea89f;
+    --rule: #23352f; --pin: #5fd3ae; --spark: #ffb36b; --head: rgba(95, 211, 174, 0.12);
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--ground); color: var(--ink);
+    font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+    padding-inline: 16px; padding-block: 28px 48px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 22px; }
+  header { display: grid; gap: 8px; }
+  h1 {
+    font-family: var(--font-display); font-weight: 400; margin: 0;
+    font-size: clamp(24px, 5.4vw, 42px); line-height: 1.05; letter-spacing: -0.01em; text-wrap: balance;
+  }
+  .lede { margin: 0; max-width: 66ch; color: var(--ink-soft); }
+
+  .drum {
+    background: var(--drum); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 10px; display: grid; gap: 8px; min-width: 0;
+  }
+  canvas { width: 100%; display: block; touch-action: none; cursor: crosshair; }
+  .meter {
+    display: flex; flex-wrap: wrap; gap: 4px 18px; font-family: var(--font-mono); font-size: 12px;
+    color: var(--ink-soft); font-variant-numeric: tabular-nums; padding-inline: 4px;
+  }
+  .meter b { color: var(--ink); font-weight: 500; }
+
+  .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 18px 24px; }
+  .field { display: grid; gap: 6px; min-width: 0; }
+  .label { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); }
+  .row-head { display: flex; justify-content: space-between; gap: 8px; }
+  .row-head output { font-family: var(--font-mono); color: var(--pin); font-variant-numeric: tabular-nums; }
+  input[type="range"] { width: 100%; accent-color: var(--pin); }
+  select {
+    font: 14px var(--font-body); color: var(--ink); background: var(--drum);
+    border: 1px solid var(--rule); border-radius: 4px; padding: 7px 8px; width: 100%;
+  }
+  .checks { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; }
+  .checks label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  input[type="checkbox"] { accent-color: var(--pin); width: 16px; height: 16px; }
+
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  button {
+    font: 500 14px var(--font-body); cursor: pointer; border-radius: 4px;
+    padding: 9px 14px; border: 1px solid var(--pin); background: transparent; color: var(--pin);
+  }
+  button.primary { background: var(--pin); color: var(--drum); min-width: 7.5em; }
+  button:hover { filter: brightness(1.08); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--pin); outline-offset: 2px; }
+
+  .how { margin: 0; color: var(--ink-soft); font-size: 14px; max-width: 70ch; }
+  kbd {
+    font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--rule); border-bottom-width: 2px;
+    border-radius: 3px; padding: 0 5px; color: var(--ink);
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Шкатулка «Жизнь»</h1>
+    <p class="lede">Музыкальная шкатулка, в которой штырьки на барабане живут по правилам игры «Жизнь» Конвея. Барабан проигрывает такт, затем клетки рождаются и умирают, и следующий такт звучит уже иначе. Мелодию пишет не человек, а клеточный автомат.</p>
+  </header>
+
+  <div class="drum">
+    <canvas id="c" aria-label="Барабан шкатулки: строки это ноты, столбцы это доли такта"></canvas>
+    <div class="meter">
+      <span>Поколение <b id="gen">0</b></span>
+      <span>Живых клеток <b id="pop">0</b></span>
+      <span>Нот в такте <b id="notes">0</b></span>
+      <span id="state">Остановлено</span>
+    </div>
+  </div>
+
+  <div class="buttons">
+    <button class="primary" id="play" type="button">Играть</button>
+    <button id="step" type="button">Шаг жизни</button>
+    <button id="seed" type="button">Посеять случайно</button>
+    <button id="clear" type="button">Очистить</button>
+  </div>
+
+  <div class="controls">
+    <div class="field">
+      <label class="label" for="pattern">Узор</label>
+      <select id="pattern">
+        <option value="gliders">Два планера</option>
+        <option value="blinkers">Мигалки и жаба</option>
+        <option value="acorn">Желудь</option>
+        <option value="rpent">R-пентамино</option>
+        <option value="lwss">Лёгкий космический корабль</option>
+        <option value="random">Случайное поле</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="label" for="scale">Лад</label>
+      <select id="scale">
+        <option value="majpent">Мажорная пентатоника</option>
+        <option value="minpent">Минорная пентатоника</option>
+        <option value="insen">Ин-сэн (Япония)</option>
+        <option value="dorian">Дорийский</option>
+        <option value="whole">Целотонная гамма</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="label" for="timbre">Тембр</label>
+      <select id="timbre">
+        <option value="box">Музыкальная шкатулка</option>
+        <option value="glass">Стеклянная гармоника</option>
+        <option value="bell">Колокольчики</option>
+        <option value="synth">Аналоговый синтезатор</option>
+      </select>
+    </div>
+    <div class="field">
+      <div class="row-head"><label class="label" for="bpm">Темп</label><output id="bpm-o"></output></div>
+      <input id="bpm" type="range" min="60" max="200" step="2" value="112">
+    </div>
+    <div class="field">
+      <div class="row-head"><label class="label" for="bars">Тактов на поколение</label><output id="bars-o"></output></div>
+      <input id="bars" type="range" min="1" max="4" step="1" value="1">
+    </div>
+    <div class="field">
+      <span class="label">Дополнительно</span>
+      <div class="checks">
+        <label><input type="checkbox" id="echo" checked> Эхо</label>
+        <label><input type="checkbox" id="evolve" checked> Жизнь идёт</label>
+        <label><input type="checkbox" id="reseed" checked> Пересев при вымирании</label>
+      </div>
+    </div>
+  </div>
+
+  <p class="how">Рисуйте по барабану мышью или пальцем: нажатие ставит или убирает штырёк. Каждая строка это нота лада, каждый столбец это шестнадцатая доля. Клавиши: <kbd>Пробел</kbd> играть или пауза, <kbd>N</kbd> шаг жизни, <kbd>R</kbd> посеять, <kbd>C</kbd> очистить.</p>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const COLS = 16, ROWS = 12;
+  const canvas = $("c"), ctx = canvas.getContext("2d");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const SCALES = {
+    majpent: [0, 2, 4, 7, 9], minpent: [0, 3, 5, 7, 10], insen: [0, 1, 5, 7, 10],
+    dorian: [0, 2, 3, 5, 7, 9, 10], whole: [0, 2, 4, 6, 8, 10]
+  };
+  const NAMES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
+  const ROOT = 48; // C3
+
+  // Row 0 is the top of the drum and the highest note.
+  function midiOf(row, scale = SCALES[$("scale").value]) {
+    const i = ROWS - 1 - row, n = scale.length;
+    return ROOT + 12 * Math.floor(i / n) + scale[i % n];
+  }
+  const noteName = m => NAMES[m % 12] + (Math.floor(m / 12) - 1);
+  const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+
+  // ---------- life ----------
+  const blank = () => new Uint8Array(COLS * ROWS);
+  let grid = blank(), gen = 0, history = [];
+  const at = (g, c, r) => g[((r + ROWS) % ROWS) * COLS + ((c + COLS) % COLS)];
+  function lifeStep(g) {
+    const next = blank();
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      let n = 0;
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (dr || dc) n += at(g, c + dc, r + dr);
+      const alive = g[r * COLS + c];
+      next[r * COLS + c] = (alive && (n === 2 || n === 3)) || (!alive && n === 3) ? 1 : 0;
+    }
+    return next;
+  }
+  const pop = g => g.reduce((a, b) => a + b, 0);
+  const key = g => g.join("");
+
+  function place(cells, oc, or) { cells.forEach(([c, r]) => { grid[((r + or) % ROWS) * COLS + ((c + oc) % COLS)] = 1; }); }
+  const PATTERNS = {
+    gliders: () => { place([[1,0],[2,1],[0,2],[1,2],[2,2]], 1, 1); place([[1,0],[2,1],[0,2],[1,2],[2,2]], 9, 6); },
+    blinkers: () => { place([[0,0],[1,0],[2,0]], 1, 2); place([[0,0],[0,1],[0,2]], 6, 7); place([[1,0],[2,0],[3,0],[0,1],[1,1],[2,1]], 9, 2); place([[0,0],[1,0],[2,0]], 11, 9); },
+    acorn: () => place([[1,0],[3,1],[0,2],[1,2],[4,2],[5,2],[6,2]], 4, 4),
+    rpent: () => place([[1,0],[2,0],[0,1],[1,1],[1,2]], 7, 4),
+    lwss: () => place([[1,0],[4,0],[0,1],[0,2],[4,2],[0,3],[1,3],[2,3],[3,3]], 2, 4),
+    random: () => { for (let i = 0; i < grid.length; i++) grid[i] = Math.random() < 0.22 ? 1 : 0; }
+  };
+  function loadPattern(name) { grid = blank(); PATTERNS[name](); gen = 0; history = []; updateMeter(); render(); }
+
+  // ---------- audio ----------
+  let ac = null, master = null, echoSend = null, echoDelay = null;
+  function initAudio() {
+    if (ac) return;
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    const comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.ratio.value = 4;
+    master = ac.createGain(); master.gain.value = 0.8;
+    master.connect(comp).connect(ac.destination);
+    const fb = ac.createGain(), tone = ac.createBiquadFilter();
+    echoDelay = ac.createDelay(2); echoSend = ac.createGain();
+    tone.type = "lowpass"; tone.frequency.value = 2400; fb.gain.value = 0.38;
+    echoSend.connect(echoDelay); echoDelay.connect(tone).connect(fb).connect(echoDelay); tone.connect(comp);
+    setEcho();
+  }
+  // Echo repeats on a dotted eighth, so it stays in time with the drum.
+  function setEcho() {
+    if (!ac) return;
+    echoSend.gain.value = $("echo").checked ? 0.32 : 0;
+    echoDelay.delayTime.setTargetAtTime((60 / bpm()) * 0.75, ac.currentTime, 0.05);
+  }
+
+  function voice(t, f, gain, pan) {
+    const out = ac.createGain(), p = ac.createStereoPanner();
+    p.pan.value = pan; out.connect(p); p.connect(master); p.connect(echoSend);
+    const env = (g, a, peak, d) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + d); };
+    const osc = (type, freq, peak, a, d, dest = out) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.value = freq; env(g, a, peak, d);
+      o.connect(g).connect(dest); o.start(t); o.stop(t + d + 0.05);
+      return o;
+    };
+    const timbre = $("timbre").value;
+    if (timbre === "box") {
+      osc("sine", f, gain, 0.003, 1.4);
+      osc("sine", f * 4, gain * 0.25, 0.002, 0.25);
+      osc("sine", f * 6.03, gain * 0.08, 0.002, 0.12);
+    } else if (timbre === "glass") {
+      osc("triangle", f, gain * 0.8, 0.06, 2.6);
+      osc("sine", f * 2, gain * 0.3, 0.08, 2.0);
+    } else if (timbre === "bell") {
+      osc("sine", f * 2, gain * 0.7, 0.002, 2.2);
+      osc("sine", f * 2 * 2.76, gain * 0.25, 0.002, 1.1);
+      osc("sine", f * 2 * 5.4, gain * 0.1, 0.002, 0.5);
+    } else {
+      const lp = ac.createBiquadFilter();
+      lp.type = "lowpass"; lp.Q.value = 6;
+      lp.frequency.setValueAtTime(f * 8, t); lp.frequency.exponentialRampToValueAtTime(f * 1.5, t + 0.35);
+      lp.connect(out);
+      osc("sawtooth", f, gain * 0.5, 0.005, 0.5, lp);
+      osc("square", f * 0.5, gain * 0.2, 0.005, 0.4, lp);
+    }
+  }
+
+  // ---------- transport ----------
+  let playing = false, step = 0, nextTime = 0, timer = 0, queue = [], shown = { col: -1, grid };
+  const bpm = () => +$("bpm").value;
+  const stepDur = () => 60 / bpm() / 4;
+  const flashes = new Map(); // cell index -> time it sounded
+
+  function scheduleStep(t) {
+    const col = step % COLS;
+    const barsPerGen = +$("bars").value;
+    if (col === 0 && step > 0 && (step / COLS) % barsPerGen === 0 && $("evolve").checked) advanceLife();
+    const g = grid, rows = [];
+    for (let r = 0; r < ROWS; r++) if (g[r * COLS + col]) rows.push(r);
+    const gain = 0.22 / Math.sqrt(Math.max(1, rows.length));
+    rows.forEach(r => voice(t, hz(midiOf(r)), gain, (col / (COLS - 1) - 0.5) * 0.8));
+    queue.push({ t, col, grid: g, rows });
+    step++;
+  }
+  function advanceLife() {
+    history.push(key(grid)); if (history.length > 6) history.shift();
+    grid = lifeStep(grid); gen++;
+    const k = key(grid);
+    if ($("reseed").checked && (pop(grid) === 0 || history.slice(-4).includes(k))) {
+      PATTERNS.random(); history = [];
+    }
+  }
+  function scheduler() {
+    while (nextTime < ac.currentTime + 0.12) { scheduleStep(nextTime); nextTime += stepDur(); }
+  }
+  function start() {
+    initAudio();
+    if (ac.state === "suspended") ac.resume();
+    playing = true; nextTime = ac.currentTime + 0.06;
+    timer = setInterval(scheduler, 25); scheduler();
+    $("play").textContent = "Пауза"; $("state").textContent = "Играет";
+  }
+  function stop() {
+    playing = false; clearInterval(timer); queue = [];
+    $("play").textContent = "Играть"; $("state").textContent = "На паузе";
+    shown = { col: -1, grid }; render();
+  }
+
+  // ---------- drawing ----------
+  let geo = null;
+  function layout() {
+    const w = canvas.clientWidth, d = devicePixelRatio || 1;
+    const gutter = Math.max(34, Math.min(48, w * 0.06));
+    const cell = (w - gutter) / COLS, h = cell * ROWS;
+    canvas.style.height = h + "px";
+    canvas.width = Math.round(w * d); canvas.height = Math.round(h * d);
+    geo = { w, h, d, gutter, cell };
+  }
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  function render() {
+    if (!geo) layout();
+    const { w, h, d, gutter, cell } = geo, now = ac ? ac.currentTime : 0;
+    const col = { pin: css("--pin"), spark: css("--spark"), rule: css("--rule"), soft: css("--ink-soft"), head: css("--head") };
+    const g = playing ? shown.grid : grid;
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    // playhead column
+    if (playing && shown.col >= 0) { ctx.fillStyle = col.head; ctx.fillRect(gutter + shown.col * cell, 0, cell, h); }
+
+    // beat lines every 4 sixteenths
+    for (let c = 0; c <= COLS; c++) {
+      ctx.fillStyle = col.rule; ctx.globalAlpha = c % 4 === 0 ? 1 : 0.45;
+      ctx.fillRect(gutter + c * cell - 0.5, 0, 1, h);
+    }
+    ctx.globalAlpha = 1;
+
+    // note names (the comb)
+    ctx.font = `${Math.max(10, Math.min(13, cell * 0.36))}px "JetBrains Mono", ui-monospace, monospace`;
+    ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillStyle = col.soft;
+    const scale = SCALES[$("scale").value];
+    for (let r = 0; r < ROWS; r++) ctx.fillText(noteName(midiOf(r, scale)), gutter - 6, r * cell + cell / 2);
+
+    // pins
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const i = r * COLS + c, x = gutter + c * cell + cell / 2, y = r * cell + cell / 2;
+      const hit = flashes.get(i), age = hit === undefined ? 9 : now - hit;
+      if (g[i]) {
+        const glow = Math.max(0, 1 - age / 0.45);
+        ctx.fillStyle = glow > 0 ? col.spark : col.pin;
+        ctx.globalAlpha = glow > 0 ? 0.55 + 0.45 * glow : 0.9;
+        ctx.beginPath(); ctx.arc(x, y, cell * (0.3 + (reduce ? 0 : 0.1 * glow)), 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.fillStyle = col.rule; ctx.globalAlpha = 0.9;
+        ctx.beginPath(); ctx.arc(x, y, Math.max(1.5, cell * 0.06), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function frame() {
+    if (playing && ac) {
+      const now = ac.currentTime;
+      while (queue.length && queue[0].t <= now) {
+        const q = queue.shift();
+        shown = q;
+        q.rows.forEach(r => flashes.set(r * COLS + q.col, q.t));
+        updateMeter(q);
+      }
+    }
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  function updateMeter(q) {
+    const g = q ? q.grid : grid;
+    $("gen").textContent = gen;
+    $("pop").textContent = pop(g);
+    $("notes").textContent = pop(g);
+  }
+
+  // ---------- painting ----------
+  let painting = null;
+  function cellAt(e) {
+    const r = canvas.getBoundingClientRect(), x = e.clientX - r.left - geo.gutter, y = e.clientY - r.top;
+    const c = Math.floor(x / geo.cell), row = Math.floor(y / geo.cell);
+    return c >= 0 && c < COLS && row >= 0 && row < ROWS ? row * COLS + c : -1;
+  }
+  function paint(i) {
+    if (i < 0 || grid[i] === painting) return;
+    grid[i] = painting;
+    if (painting && ac) { voice(ac.currentTime + 0.01, hz(midiOf(Math.floor(i / COLS))), 0.18, 0); flashes.set(i, ac.currentTime); }
+    if (!playing) shown = { col: -1, grid };
+    updateMeter();
+  }
+  canvas.addEventListener("pointerdown", e => {
+    const i = cellAt(e); if (i < 0) return;
+    canvas.setPointerCapture(e.pointerId);
+    painting = grid[i] ? 0 : 1; paint(i);
+  });
+  canvas.addEventListener("pointermove", e => { if (painting !== null) paint(cellAt(e)); });
+  const endPaint = () => { painting = null; };
+  canvas.addEventListener("pointerup", endPaint);
+  canvas.addEventListener("pointercancel", endPaint);
+
+  // ---------- controls ----------
+  const togglePlay = () => (playing ? stop() : start());
+  $("play").addEventListener("click", togglePlay);
+  $("step").addEventListener("click", () => { advanceLife(); if (!playing) shown = { col: -1, grid }; updateMeter(); });
+  $("seed").addEventListener("click", () => { PATTERNS.random(); gen = 0; history = []; updateMeter(); });
+  $("clear").addEventListener("click", () => { grid = blank(); gen = 0; history = []; if (!playing) shown = { col: -1, grid }; updateMeter(); });
+  $("pattern").addEventListener("change", e => loadPattern(e.target.value));
+  $("echo").addEventListener("change", setEcho);
+  [["bpm", v => v + " уд/мин"], ["bars", v => v]].forEach(([id, f]) => {
+    const upd = () => { $(id + "-o").textContent = f(+$(id).value); };
+    $(id).addEventListener("input", () => { upd(); setEcho(); }); upd();
+  });
+
+  addEventListener("keydown", e => {
+    if (e.target.closest("input, select, textarea, button") || e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === " ") { e.preventDefault(); togglePlay(); }
+    else if (k === "n" || k === "т") $("step").click();
+    else if (k === "r" || k === "к") $("seed").click();
+    else if (k === "c" || k === "с") $("clear").click();
+  });
+  addEventListener("resize", () => { layout(); });
+
+  loadPattern("gliders");
+  layout();
+  requestAnimationFrame(frame);
+})();
+</script>
